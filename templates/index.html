@@ -97,6 +97,28 @@
   .faltan.amarillo{color:var(--sem-amber);} .faltan.amarillo::before{background:var(--sem-amber);}
   .faltan.verde{color:var(--sem-green);} .faltan.verde::before{background:var(--sem-green);}
   .faltan.cerrada,.faltan.sin_fecha{color:var(--sem-grey);} .faltan.cerrada::before,.faltan.sin_fecha::before{background:var(--sem-grey);}
+
+  .jur-link{background:none;border:none;padding:0;font:inherit;color:rgba(255,255,255,.85);font-size:13px;text-decoration:underline;text-underline-offset:2px;cursor:pointer;}
+  .jur-link:hover{color:#fff;}
+
+  .pill-clear{background:none;border:1.5px dashed var(--border);color:var(--text-muted);}
+  .pill-clear:hover{color:var(--text);border-color:var(--text-muted);}
+
+  /* ---------- modal ---------- */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(10,25,20,.45);z-index:50;align-items:center;justify-content:center;padding:20px;}
+  .modal-overlay.open{display:flex;}
+  .modal-box{background:var(--surface);border-radius:14px;max-width:480px;width:100%;padding:24px;box-shadow:0 20px 60px -12px rgba(0,0,0,.4);}
+  .modal-box h3{margin:0 0 4px;font-family:'Poppins',sans-serif;font-size:18px;}
+  .modal-box .sub{color:var(--text-muted);font-size:13px;margin:0 0 18px;}
+  .jur-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+  .jur-item:last-child{border-bottom:none;}
+  .jur-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+  .jur-item .name{font-weight:700;font-size:14px;}
+  .jur-item .desc{color:var(--text-muted);font-size:12.5px;}
+  .jur-item .count{margin-left:auto;font-family:ui-monospace,monospace;font-size:12.5px;color:var(--text-muted);}
+  .jur-item.proximo{opacity:.55;}
+  .modal-close{width:100%;margin-top:18px;padding:10px;border:none;border-radius:8px;background:var(--surface-2);color:var(--text);font-weight:600;cursor:pointer;font-family:inherit;}
+  .modal-close:hover{background:var(--border);}
 </style>
 </head>
 <body>
@@ -106,7 +128,7 @@
     <img src="{{ url_for('static', filename='logo-reverse.png') }}" alt="IcomSalud" style="height:34px;background:transparent;">
     <div>
       <h1>Radar de Licitaciones</h1>
-      <p class="tag">Nación (COMPR.AR) · CABA (BAC) · Provincia de Buenos Aires (PBAC) — unificadas en un solo lugar</p>
+      <button type="button" class="jur-link" id="abrir-jurisdicciones">Jurisdicciones adheridas (3) →</button>
     </div>
   </div>
 </div>
@@ -114,22 +136,21 @@
 <div class="page">
 
   <div class="filterbar">
-    <form method="get">
+    <form id="filtros" onsubmit="return false">
       <div class="row">
-        <input type="text" name="q" value="{{ q }}" placeholder="Buscar por título, descripción u organismo...">
-        <button class="submit" type="submit">Buscar</button>
+        <input type="text" id="q" value="{{ q }}" placeholder="Buscar por título, descripción u organismo...">
       </div>
 
       <div class="row between">
         <div class="pill-group">
-          <a class="pill pill-all {{ 'active' if not fuente else '' }}" href="{{ url_with(fuente=None) }}">Todas <b>{{ (por_fuente.values()|sum) }}</b></a>
+          <a class="pill pill-all pill-clear {{ 'active' if not fuente else '' }}" data-param="fuente" data-clear="1" href="{{ url_with(fuente=None) }}">Todas <b>{{ (por_fuente.values()|sum) }}</b></a>
           {% for slug, label in fuentes %}
-            <a class="pill pill-{{ slug.replace('_ar','') }} {{ 'active' if fuente==slug else '' }}" href="{{ url_with(fuente=(None if fuente==slug else slug)) }}">{{ label }} <b>{{ por_fuente.get(slug, 0) }}</b></a>
+            <a class="pill pill-{{ slug.replace('_ar','') }} {{ 'active' if fuente==slug else '' }}" data-param="fuente" data-value="{{ slug }}" href="{{ url_with(fuente=(None if fuente==slug else slug)) }}">{{ label }} <b>{{ por_fuente.get(slug, 0) }}</b></a>
           {% endfor %}
         </div>
         <div class="pill-group">
-          <a class="pill {{ 'active' if solo_con_renglones else '' }}" href="{{ url_with(renglones=(None if solo_con_renglones else True)) }}">Con renglones</a>
-          <a class="pill {{ 'active' if solo_vigentes else '' }}" href="{{ url_with(vigentes=(None if solo_vigentes else True)) }}">Vigentes hoy</a>
+          <a class="pill {{ 'active' if solo_con_renglones else '' }}" data-param="renglones" data-bool="1" href="{{ url_with(renglones=(None if solo_con_renglones else True)) }}">Con renglones</a>
+          <a class="pill {{ 'active' if solo_vigentes else '' }}" data-param="vigentes" data-bool="1" href="{{ url_with(vigentes=(None if solo_vigentes else True)) }}">Vigentes hoy</a>
         </div>
       </div>
 
@@ -137,62 +158,180 @@
         <div class="row">
           <span class="label-mini">Apertura</span>
           <div class="pill-group">
-            <a class="pill pill-rojo {{ 'active' if urgencia=='rojo' else '' }}" href="{{ url_with(urgencia=(None if urgencia=='rojo' else 'rojo')) }}">● Urgente (&lt;48h)</a>
-            <a class="pill pill-amarillo {{ 'active' if urgencia=='amarillo' else '' }}" href="{{ url_with(urgencia=(None if urgencia=='amarillo' else 'amarillo')) }}">● Pronto (&lt;7 días)</a>
-            <a class="pill pill-verde {{ 'active' if urgencia=='verde' else '' }}" href="{{ url_with(urgencia=(None if urgencia=='verde' else 'verde')) }}">● Con tiempo</a>
+            <a class="pill pill-rojo {{ 'active' if urgencia=='rojo' else '' }}" data-param="urgencia" data-value="rojo" href="{{ url_with(urgencia=(None if urgencia=='rojo' else 'rojo')) }}">● Urgente (&lt;48h)</a>
+            <a class="pill pill-amarillo {{ 'active' if urgencia=='amarillo' else '' }}" data-param="urgencia" data-value="amarillo" href="{{ url_with(urgencia=(None if urgencia=='amarillo' else 'amarillo')) }}">● Pronto (&lt;7 días)</a>
+            <a class="pill pill-verde {{ 'active' if urgencia=='verde' else '' }}" data-param="urgencia" data-value="verde" href="{{ url_with(urgencia=(None if urgencia=='verde' else 'verde')) }}">● Con tiempo</a>
+          </div>
+        </div>
+
+        <div class="row">
+          <span class="label-mini">Rápido</span>
+          <div class="pill-group">
+            <a class="pill" data-preset="hoy" href="#">Hoy</a>
+            <a class="pill" data-preset="manana" href="#">Mañana</a>
+            <a class="pill" data-preset="esta_semana" href="#">Esta semana</a>
+            <a class="pill" data-preset="proxima_semana" href="#">Próxima semana</a>
           </div>
           <div class="sep"></div>
           <div class="date-field">
-            desde <input type="date" name="desde" value="{{ apertura_desde }}">
+            desde <input type="date" id="desde" value="{{ apertura_desde }}">
           </div>
           <div class="date-field">
-            hasta <input type="date" name="hasta" value="{{ apertura_hasta }}">
+            hasta <input type="date" id="hasta" value="{{ apertura_hasta }}">
           </div>
+          <a class="pill pill-clear" id="borrar-fechas" href="#">Borrar fechas</a>
         </div>
       </div>
     </form>
   </div>
 
-  <p class="muted" style="margin:-8px 0 14px;font-size:13px;">
-    Mostrando {{ shown }} de {{ total }} resultados
-  </p>
-
-  <div class="table-wrap">
-    {% if rows %}
-    <table>
-      <thead>
-        <tr>
-          <th>Fuente</th><th>N° proceso</th><th>Título</th><th>Organismo</th>
-          <th>Tipo</th><th>Apertura</th><th>Faltan</th><th>Estado</th><th>Monto est.</th><th>Adjudicado a</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in rows %}
-        <tr>
-          <td><span class="badge-fuente pill-{{ r.fuente.replace('_ar','') }}">{{ r.fuente }}</span></td>
-          <td>{{ r.numero_proceso }}</td>
-          <td>
-            <div class="titulo-wrap">
-              <a class="titulo" href="{{ url_for('detalle', licitacion_id=r.id) }}">{{ r.titulo or '(sin título)' }}</a>
-              {% if r.url %}<a class="oficial" href="{{ r.url }}" target="_blank" rel="noopener" title="Ver en el portal oficial">↗</a>{% endif %}
-            </div>
-            {% if r.n_renglones > 0 %}<span class="badge-renglones">{{ r.n_renglones }} {{ 'renglones' if r.n_renglones != 1 else 'renglón' }}</span>{% endif %}
-          </td>
-          <td>{{ r.organismo or '—' }}</td>
-          <td>{{ r.tipo_procedimiento or '—' }}</td>
-          <td>{{ r.fecha_apertura[:16].replace('T',' ') if r.fecha_apertura else '—' }}</td>
-          <td>{% if r.faltan %}<span class="faltan {{ r.urgencia }}">{{ r.faltan }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
-          <td><span class="estado-txt">{{ r.estado or '—' }}</span></td>
-          <td class="monto">{% if r.monto_estimado %}{{ '{:,.0f}'.format(r.monto_estimado) }} {{ r.moneda or '' }}{% else %}—{% endif %}</td>
-          <td>{{ r.proveedor_adjudicado or '—' }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-      <div class="empty">Sin resultados para esta búsqueda.</div>
-    {% endif %}
+  <div id="resultados">
+    {% include "_resultados.html" %}
   </div>
 </div>
+
+<div class="modal-overlay" id="modal-jurisdicciones">
+  <div class="modal-box">
+    <h3>Jurisdicciones adheridas</h3>
+    <p class="sub">Fuentes de datos públicas conectadas al radar. Se van sumando a medida que se incorporan.</p>
+
+    <div class="jur-item">
+      <span class="jur-dot" style="background:var(--src-comprar)"></span>
+      <div>
+        <div class="name">COMPR.AR</div>
+        <div class="desc">Nación — bienes y servicios (ONC)</div>
+      </div>
+      <span class="count">{{ '{:,}'.format(por_fuente.get('comprar_ar', 0)) }}</span>
+    </div>
+    <div class="jur-item">
+      <span class="jur-dot" style="background:var(--src-bac)"></span>
+      <div>
+        <div class="name">BAC</div>
+        <div class="desc">Ciudad Autónoma de Buenos Aires</div>
+      </div>
+      <span class="count">{{ '{:,}'.format(por_fuente.get('bac', 0)) }}</span>
+    </div>
+    <div class="jur-item">
+      <span class="jur-dot" style="background:var(--src-pbac)"></span>
+      <div>
+        <div class="name">PBAC</div>
+        <div class="desc">Provincia de Buenos Aires</div>
+      </div>
+      <span class="count">{{ '{:,}'.format(por_fuente.get('pbac', 0)) }}</span>
+    </div>
+    <div class="jur-item proximo">
+      <span class="jur-dot" style="background:var(--sem-grey)"></span>
+      <div>
+        <div class="name">Municipios (Provincia de Buenos Aires)</div>
+        <div class="desc">Próximamente</div>
+      </div>
+    </div>
+
+    <button class="modal-close" id="cerrar-jurisdicciones">Cerrar</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const resultadosEl = document.getElementById('resultados');
+  const qInput = document.getElementById('q');
+  const desdeInput = document.getElementById('desde');
+  const hastaInput = document.getElementById('hasta');
+
+  function currentParams(){
+    const p = new URLSearchParams();
+    if (qInput.value.trim()) p.set('q', qInput.value.trim());
+    const fuente = document.querySelector('.pill[data-param="fuente"].active:not([data-clear])');
+    if (fuente) p.set('fuente', fuente.dataset.value);
+    if (document.querySelector('.pill[data-param="renglones"].active')) p.set('renglones', '1');
+    if (document.querySelector('.pill[data-param="vigentes"].active')) p.set('vigentes', '1');
+    const urg = document.querySelector('.pill[data-param="urgencia"].active');
+    if (urg) p.set('urgencia', urg.dataset.value);
+    if (desdeInput.value) p.set('desde', desdeInput.value);
+    if (hastaInput.value) p.set('hasta', hastaInput.value);
+    return p;
+  }
+
+  let debounceTimer = null;
+
+  function aplicar(push){
+    const params = currentParams();
+    const qs = params.toString();
+    const url = qs ? ('/?' + qs) : '/';
+    if (push) history.pushState({}, '', url);
+    fetch(url, {headers: {'X-Requested-With': 'fetch'}})
+      .then(r => r.text())
+      .then(html => { resultadosEl.innerHTML = html; })
+      .catch(() => {});
+    sincronizarPresets();
+  }
+
+  qInput.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => aplicar(true), 350);
+  });
+  qInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); clearTimeout(debounceTimer); aplicar(true); }
+  });
+
+  desdeInput.addEventListener('change', () => aplicar(true));
+  hastaInput.addEventListener('change', () => aplicar(true));
+
+  document.querySelectorAll('.pill[data-param]').forEach(pill => {
+    pill.addEventListener('click', e => {
+      e.preventDefault();
+      const param = pill.dataset.param;
+      if (pill.dataset.bool === '1') {
+        pill.classList.toggle('active');
+      } else {
+        const wasActive = pill.classList.contains('active');
+        document.querySelectorAll(`.pill[data-param="${param}"]`).forEach(p => p.classList.remove('active'));
+        if (!wasActive && pill.dataset.clear !== '1') pill.classList.add('active');
+      }
+      aplicar(true);
+    });
+  });
+
+  function isoDate(d){ return d.toISOString().slice(0, 10); }
+  function addDays(d, n){ const r = new Date(d); r.setDate(r.getDate() + n); return r; }
+  function startOfWeek(d){ const day = (d.getDay() + 6) % 7; return addDays(d, -day); }
+  const presets = {
+    hoy: () => { const t = new Date(); return [isoDate(t), isoDate(t)]; },
+    manana: () => { const t = addDays(new Date(), 1); return [isoDate(t), isoDate(t)]; },
+    esta_semana: () => { const t = new Date(); return [isoDate(t), isoDate(addDays(startOfWeek(t), 6))]; },
+    proxima_semana: () => { const s = addDays(startOfWeek(new Date()), 7); return [isoDate(s), isoDate(addDays(s, 6))]; },
+  };
+
+  document.querySelectorAll('.pill[data-preset]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      const [d, h] = presets[btn.dataset.preset]();
+      desdeInput.value = d; hastaInput.value = h;
+      aplicar(true);
+    });
+  });
+
+  function sincronizarPresets(){
+    document.querySelectorAll('.pill[data-preset]').forEach(btn => {
+      const [d, h] = presets[btn.dataset.preset]();
+      btn.classList.toggle('active', desdeInput.value === d && hastaInput.value === h);
+    });
+  }
+  sincronizarPresets();
+
+  document.getElementById('borrar-fechas').addEventListener('click', e => {
+    e.preventDefault();
+    desdeInput.value = ''; hastaInput.value = '';
+    aplicar(true);
+  });
+
+  window.addEventListener('popstate', () => location.reload());
+
+  const modal = document.getElementById('modal-jurisdicciones');
+  document.getElementById('abrir-jurisdicciones').addEventListener('click', () => modal.classList.add('open'));
+  document.getElementById('cerrar-jurisdicciones').addEventListener('click', () => modal.classList.remove('open'));
+  modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
+})();
+</script>
 </body>
 </html>

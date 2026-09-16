@@ -66,8 +66,7 @@ def _texto_faltante(fecha_apertura, urgencia):
     return f"{dias} días"
 
 
-@app.route("/")
-def index():
+def _buscar():
     q = request.args.get("q", "").strip()
     fuente = request.args.get("fuente", "").strip()
     solo_con_renglones = request.args.get("renglones", "") == "1"
@@ -145,8 +144,7 @@ def index():
     ).fetchall()}
     conn.close()
 
-    return render_template(
-        "index.html",
+    return dict(
         rows=rows,
         total=total,
         q=q,
@@ -160,6 +158,14 @@ def index():
         por_fuente=por_fuente,
         shown=len(rows),
     )
+
+
+@app.route("/")
+def index():
+    ctx = _buscar()
+    if request.headers.get("X-Requested-With") == "fetch":
+        return render_template("_resultados.html", **ctx)
+    return render_template("index.html", **ctx)
 
 
 @app.route("/licitacion/<int:licitacion_id>")

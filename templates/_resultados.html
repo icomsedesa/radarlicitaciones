@@ -1,0 +1,40 @@
+<p class="muted" style="margin:-8px 0 14px;font-size:13px;">
+  Mostrando {{ shown }} de {{ total }} resultados
+</p>
+
+<div class="table-wrap">
+  {% if rows %}
+  <table>
+    <thead>
+      <tr>
+        <th>Fuente</th><th>N° proceso</th><th>Título</th><th>Organismo</th>
+        <th>Tipo</th><th>Apertura</th><th>Faltan</th><th>Estado</th><th>Monto est.</th><th>Adjudicado a</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td><span class="badge-fuente pill-{{ r.fuente.replace('_ar','') }}">{{ r.fuente }}</span></td>
+        <td>{{ r.numero_proceso }}</td>
+        <td>
+          <div class="titulo-wrap">
+            <a class="titulo" href="{{ url_for('detalle', licitacion_id=r.id) }}">{{ r.titulo or '(sin título)' }}</a>
+            {% if r.url %}<a class="oficial" href="{{ r.url }}" target="_blank" rel="noopener" title="Ver en el portal oficial">↗</a>{% endif %}
+          </div>
+          {% if r.n_renglones > 0 %}<span class="badge-renglones">{{ r.n_renglones }} {{ 'renglones' if r.n_renglones != 1 else 'renglón' }}</span>{% endif %}
+        </td>
+        <td>{{ r.organismo or '—' }}</td>
+        <td>{{ r.tipo_procedimiento or '—' }}</td>
+        <td>{{ r.fecha_apertura[:16].replace('T',' ') if r.fecha_apertura else '—' }}</td>
+        <td>{% if r.faltan %}<span class="faltan {{ r.urgencia }}">{{ r.faltan }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td><span class="estado-txt">{{ r.estado or '—' }}</span></td>
+        <td class="monto">{% if r.monto_estimado %}{{ '{:,.0f}'.format(r.monto_estimado) }} {{ r.moneda or '' }}{% else %}—{% endif %}</td>
+        <td>{{ r.proveedor_adjudicado or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <div class="empty">Sin resultados para esta búsqueda.</div>
+  {% endif %}
+</div>
