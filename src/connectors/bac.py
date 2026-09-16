@@ -86,7 +86,8 @@ def fetch(limit: int | None = None) -> list[dict]:
                 "estado": _txt(r.get("tender/status")),
                 "proveedor_adjudicado": _txt(r.get("awards/0/suppliers/0/name")),
                 "monto_adjudicado": _num(r.get("awards/0/value/amount")),
-                "url": f"https://www.buenosairescompras.gob.ar/Compras/VerProcesoCompra.aspx?qs={r.get('ocid')}",
+                # el link real al pliego usa un token opaco por documento (no el ocid)
+                "url": _txt(r.get("tender/documents/0/url")),
                 "items": items,
             }
         )

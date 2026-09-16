@@ -27,19 +27,20 @@ def run(max_procesos=200):
 
     rows = conn.execute(
         """
-        SELECT numero_proceso FROM licitaciones
-        WHERE fuente='comprar_ar' AND (
-            estado = 'Publicado'
-            OR (fecha_apertura >= ? AND fecha_apertura <= ?)
+        SELECT l.numero_proceso FROM licitaciones l
+        WHERE l.fuente='comprar_ar' AND (
+            l.estado = 'Publicado'
+            OR (l.fecha_apertura >= ? AND l.fecha_apertura <= ?)
         )
-        ORDER BY fecha_apertura ASC
+        AND NOT EXISTS (SELECT 1 FROM licitacion_items i WHERE i.licitacion_id = l.id)
+        ORDER BY l.fecha_apertura ASC
         LIMIT ?
         """,
         (ahora, limite, max_procesos),
     ).fetchall()
 
     numeros = [r["numero_proceso"] for r in rows]
-    print(f"{len(numeros)} licitaciones vigentes de COMPR.AR para completar renglones")
+    print(f"{len(numeros)} licitaciones vigentes de COMPR.AR para completar renglones (sin renglones todavia)")
 
     if not numeros:
         conn.close()
@@ -48,8 +49,9 @@ def run(max_procesos=200):
     resultados = comprar_ar_items.fetch_renglones_batch(numeros)
 
     total_items = 0
-    for numero, items in resultados.items():
-        db.set_items(conn, "comprar_ar", numero, items)
+    for numero, resultado in resultados.items():
+        items = resultado["items"]
+        db.set_items(conn, "comprar_ar", numero, items, url=resultado.get("url"))
         total_items += len(items)
         print(f"  {numero}: {len(items)} renglones")
 

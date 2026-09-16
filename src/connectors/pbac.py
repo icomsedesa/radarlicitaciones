@@ -63,7 +63,9 @@ def _parse_rows(soup: BeautifulSoup) -> list[dict]:
                 "estado": tds[4].get_text(strip=True),
                 "proveedor_adjudicado": None,
                 "monto_adjudicado": None,
-                "url": None,
+                # no hay URL de detalle por proceso sin sesion (postback opaco);
+                # se linkea al listado general, buscable por numero
+                "url": BASE_URL,
             }
         )
     return rows

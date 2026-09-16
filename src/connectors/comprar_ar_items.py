@@ -27,9 +27,9 @@ def _parse_cantidad(text: str):
         return None, unidad.strip() or None
 
 
-def fetch_renglones(numero_proceso: str, page=None) -> list[dict]:
+def fetch_renglones(numero_proceso: str, page=None) -> dict:
     """Si no se pasa `page`, abre y cierra un browser propio (mas lento;
-    para lotes usar fetch_renglones_batch)."""
+    para lotes usar fetch_renglones_batch). Devuelve {"url": ..., "items": [...]}."""
     if page is not None:
         return _fetch_with_page(page, numero_proceso)
 
@@ -42,7 +42,7 @@ def fetch_renglones(numero_proceso: str, page=None) -> list[dict]:
             browser.close()
 
 
-def _fetch_with_page(page, numero_proceso: str) -> list[dict]:
+def _fetch_with_page(page, numero_proceso: str) -> dict:
     page.goto(BASE_URL, wait_until="domcontentloaded")
     page.fill("#ctl00_CPH1_txtNumeroProceso", numero_proceso)
     page.click("#ctl00_CPH1_btnListarPliegoNumero")
@@ -51,10 +51,11 @@ def _fetch_with_page(page, numero_proceso: str) -> list[dict]:
     try:
         link.wait_for(state="visible", timeout=20000)
     except Exception:
-        return []  # sin resultados para este numero de proceso
+        return {"url": None, "items": []}  # sin resultados para este numero de proceso
 
     link.click()
     page.wait_for_selector("text=Detalle de productos o servicios", timeout=20000)
+    url_detalle = page.url
 
     # la tabla de renglones esta bajo el encabezado "Detalle de productos o servicios"
     tables = page.locator("table")
@@ -69,7 +70,7 @@ def _fetch_with_page(page, numero_proceso: str) -> list[dict]:
             target = t
             break
     if target is None:
-        return []
+        return {"url": url_detalle, "items": []}
 
     items = []
     rows = target.locator("tr")
@@ -91,12 +92,12 @@ def _fetch_with_page(page, numero_proceso: str) -> list[dict]:
                 "clasificacion": tds.nth(1).inner_text().strip(),
             }
         )
-    return items
+    return {"url": url_detalle, "items": items}
 
 
-def fetch_renglones_batch(numeros_proceso: list[str]) -> dict[str, list[dict]]:
+def fetch_renglones_batch(numeros_proceso: list[str]) -> dict[str, dict]:
     """Reusa un unico browser/page para varios procesos (mucho mas rapido
-    que abrir uno por proceso)."""
+    que abrir uno por proceso). Devuelve {numero_proceso: {"url","items"}}."""
     resultados = {}
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -106,7 +107,7 @@ def fetch_renglones_batch(numeros_proceso: list[str]) -> dict[str, list[dict]]:
                 resultados[numero] = _fetch_with_page(page, numero)
             except Exception as e:  # portal caido, timeout, etc. -- no cortar el lote
                 print(f"  ! error en {numero}: {e}")
-                resultados[numero] = []
+                resultados[numero] = {"url": None, "items": []}
         browser.close()
     return resultados
 
@@ -115,5 +116,7 @@ if __name__ == "__main__":
     import sys
 
     numero = sys.argv[1] if len(sys.argv) > 1 else "95-0004-CDI26"
-    for item in fetch_renglones(numero):
+    resultado = fetch_renglones(numero)
+    print("url:", resultado["url"])
+    for item in resultado["items"]:
         print(item)

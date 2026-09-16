@@ -58,7 +58,7 @@ def _parse_rows(page) -> list[dict]:
                 "estado": tds[5].inner_text().strip(),
                 "proveedor_adjudicado": None,
                 "monto_adjudicado": None,
-                "url": None,
+                "url": "https://comprar.gob.ar/BuscarAvanzado.aspx",
                 "expediente": tds[1].inner_text().strip(),
             }
         )

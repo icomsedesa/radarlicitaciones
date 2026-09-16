@@ -106,7 +106,9 @@ def fetch(limit: int | None = None) -> list[dict]:
                 "estado": None,
                 "proveedor_adjudicado": r.get("proveedores") if pd.notna(r.get("proveedores")) else None,
                 "monto_adjudicado": r.get("monto_adjudicado") if pd.notna(r.get("monto_adjudicado")) else None,
-                "url": f"https://comprar.gob.ar/BuscarAvanzado.aspx?qs={r.get('Numero_Proceso')}",
+                # no hay URL de detalle directa sin buscar primero (token opaco por
+                # proceso); backfill_items la completa con el link real al scrapear renglones
+                "url": "https://comprar.gob.ar/BuscarAvanzado.aspx",
             }
         )
     return rows

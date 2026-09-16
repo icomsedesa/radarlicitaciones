@@ -161,10 +161,10 @@ def upsert_live_estado(conn, rows):
     return n_update, n_insert
 
 
-def set_items(conn, fuente, numero_proceso, items):
+def set_items(conn, fuente, numero_proceso, items, url=None):
     """Reemplaza los items de una licitacion ya existente (identificada por
-    fuente+numero_proceso), sin tocar el resto de sus campos. Devuelve
-    False si la licitacion no existe."""
+    fuente+numero_proceso), sin tocar el resto de sus campos (salvo `url`,
+    si se pasa). Devuelve False si la licitacion no existe."""
     cur = conn.execute(
         "SELECT id FROM licitaciones WHERE fuente=? AND numero_proceso=?",
         (fuente, numero_proceso),
@@ -173,6 +173,8 @@ def set_items(conn, fuente, numero_proceso, items):
     if not row:
         return False
     licitacion_id = row["id"]
+    if url:
+        conn.execute("UPDATE licitaciones SET url=? WHERE id=?", (url, licitacion_id))
     conn.execute("DELETE FROM licitacion_items WHERE licitacion_id=?", (licitacion_id,))
     for item in items:
         conn.execute(
