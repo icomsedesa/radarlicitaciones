@@ -17,6 +17,9 @@ FUENTES = [
     ("muni_san_miguel", "San Miguel"),
     ("muni_la_matanza", "La Matanza"),
     ("muni_campana", "Campana"),
+    ("muni_vicente_lopez", "Vicente López"),
+    ("muni_san_andres_giles", "San Andrés de Giles"),
+    ("muni_chivilcoy", "Chivilcoy"),
 ]
 
 URGENCIA_CASE = """

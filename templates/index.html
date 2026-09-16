@@ -130,7 +130,7 @@
     <img src="{{ url_for('static', filename='logo-reverse.png') }}" alt="IcomSalud" style="height:34px;background:transparent;">
     <div>
       <h1>Radar de Licitaciones</h1>
-      <button type="button" class="jur-link" id="abrir-jurisdicciones">Jurisdicciones adheridas (6) →</button>
+      <button type="button" class="jur-link" id="abrir-jurisdicciones">Jurisdicciones adheridas (9) →</button>
     </div>
   </div>
 </div>
@@ -244,6 +244,30 @@
         <div class="desc">Municipio (vía SIBOM)</div>
       </div>
       <span class="count">{{ '{:,}'.format(por_fuente.get('muni_campana', 0)) }}</span>
+    </div>
+    <div class="jur-item">
+      <span class="jur-dot" style="background:var(--src-muni)"></span>
+      <div>
+        <div class="name">Vicente López</div>
+        <div class="desc">Municipio (GBA norte)</div>
+      </div>
+      <span class="count">{{ '{:,}'.format(por_fuente.get('muni_vicente_lopez', 0)) }}</span>
+    </div>
+    <div class="jur-item">
+      <span class="jur-dot" style="background:var(--src-muni)"></span>
+      <div>
+        <div class="name">San Andrés de Giles</div>
+        <div class="desc">Municipio (interior bonaerense)</div>
+      </div>
+      <span class="count">{{ '{:,}'.format(por_fuente.get('muni_san_andres_giles', 0)) }}</span>
+    </div>
+    <div class="jur-item">
+      <span class="jur-dot" style="background:var(--src-muni)"></span>
+      <div>
+        <div class="name">Chivilcoy</div>
+        <div class="desc">Municipio (interior bonaerense)</div>
+      </div>
+      <span class="count">{{ '{:,}'.format(por_fuente.get('muni_chivilcoy', 0)) }}</span>
     </div>
     <div class="jur-item proximo">
       <span class="jur-dot" style="background:var(--sem-grey)"></span>

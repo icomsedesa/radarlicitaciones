@@ -9,7 +9,9 @@ import sys
 
 from src import db
 from src.connectors import bac, comprar_ar, pbac
-from src.connectors.municipios import la_matanza, san_miguel, sibom
+from src.connectors.municipios import (
+    chivilcoy, la_matanza, san_andres_de_giles, san_miguel, sibom, vicente_lopez,
+)
 
 
 def run(comprar_limit=None, bac_limit=None, pbac_pages=5, municipios=True):
@@ -52,6 +54,24 @@ def run(comprar_limit=None, bac_limit=None, pbac_pages=5, municipios=True):
             city_id=18, fuente="muni_campana",
             organismo="Municipalidad de Campana", jurisdiccion="Municipio de Campana (GBA)",
         )
+        n = db.upsert_many(conn, rows)
+        print(f"  {n} filas cargadas")
+        total += n
+
+        print("== Municipio de Vicente López ==")
+        rows = vicente_lopez.fetch()
+        n = db.upsert_many(conn, rows)
+        print(f"  {n} filas cargadas")
+        total += n
+
+        print("== Municipio de San Andrés de Giles ==")
+        rows = san_andres_de_giles.fetch()
+        n = db.upsert_many(conn, rows)
+        print(f"  {n} filas cargadas")
+        total += n
+
+        print("== Municipio de Chivilcoy ==")
+        rows = chivilcoy.fetch()
         n = db.upsert_many(conn, rows)
         print(f"  {n} filas cargadas")
         total += n
