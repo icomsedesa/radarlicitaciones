@@ -435,17 +435,21 @@ footer{ margin-top:60px; padding-top:20px; border-top:1px solid var(--border); c
           <ul class="plain">
             <li><span class="badge ok">Hecho</span> Conectores para COMPR.AR, BAC y PBAC, con normalización al esquema interno y buscador con filtros básicos.</li>
             <li><span class="badge ok">Hecho</span> Renglones (líneas/ítems) por licitación: incluidos en la carga de BAC; para COMPR.AR se resuelven on-demand por proceso vigente vía Playwright (no están en el CSV masivo).</li>
-            <li><span class="badge risk">Hallazgo</span> El CSV masivo de COMPR.AR está ~6 semanas desfasado — para "qué puedo ofertar hoy" no alcanza, hace falta un conector contra el buscador en vivo del portal (mismo mecanismo ya construido para renglones).</li>
+            <li><span class="badge ok">Hecho</span> El CSV masivo de COMPR.AR estaba ~6 semanas desfasado — se sumó un conector contra el buscador en vivo del portal (filtro Estado="Publicado", mismo mecanismo de Playwright que los renglones) que corrige el estado/fecha real de cada proceso.</li>
             <li><span class="badge risk">Hallazgo</span> El recurso <code>bac_anual.json</code> de BAC estaba mal etiquetado (traía solo datos de 2022 pese a actualizarse a diario) — se corrigió usando <code>bac_anual.csv</code> en su lugar.</li>
             <li>Sin IA todavía — el objetivo es tener datos confiables y buscables.</li>
           </ul>
         </div>
         <div class="phase">
-          <div class="phase-head"><span class="phase-name">Fase 2 — Sumar PBA y municipios prioritarios</span><span class="phase-time">3–4 semanas</span></div>
+          <div class="phase-head"><span class="phase-name">Fase 2 — Sumar PBA y municipios prioritarios</span><span class="phase-time">en curso</span></div>
           <p>La parte sin API: scraping a medida y manejo de datos sucios.</p>
           <ul class="plain">
-            <li>Scraper de PBAC y de los municipios elegidos en la Fase 0.</li>
-            <li>Deduplicación entre fuentes y normalización de nombres de organismos/rubros.</li>
+            <li><span class="badge ok">Hecho</span> Scraper de PBAC (Fase 1).</li>
+            <li><span class="badge ok">Hecho</span> Investigación de 11 municipios del GBA + interior bonaerense (San Miguel, Tigre, Campana, Capitán Sarmiento, Malvinas Argentinas, San Andrés de Giles, Chivilcoy, San Isidro, Vicente López, Esteban Echeverría, La Matanza): <strong>ninguno tiene un sistema de compras online</strong> con tabla y paginación como Nación/CABA/Provincia — la publicación va desde "página única con PDFs sueltos" hasta "no existe nada digital".</li>
+            <li><span class="badge ok">Hecho</span> 3 conectores nuevos: <strong>San Miguel</strong> (página con todo el histórico 2020-2026, sin fecha de apertura en el HTML), <strong>La Matanza</strong> (el municipio más poblado de la provincia — Boletín Municipal mensual en PDF, texto real parseado con <code>pdfplumber</code> + regex, con fecha de apertura y monto), <strong>Campana</strong> (vía <strong>SIBOM</strong>, la plataforma de Boletín Oficial compartida por decenas de municipios bonaerenses — conector genérico y reutilizable por <code>city_id</code>).</li>
+            <li><span class="badge risk">Sin fuente digital viable hoy</span> Tigre, Malvinas Argentinas, Esteban Echeverría, Capitán Sarmiento.</li>
+            <li><span class="badge warn">Pendiente</span> San Isidro (mejores datos individuales de los 11, pero el índice de licitaciones vigentes del sitio da 404), Vicente López, San Andrés de Giles, Chivilcoy.</li>
+            <li>Deduplicación entre fuentes y normalización de nombres de organismos/rubros — pendiente, cobra más importancia a medida que se suman fuentes con formatos tan distintos.</li>
           </ul>
         </div>
         <div class="phase">
