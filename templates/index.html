@@ -33,6 +33,10 @@
   .monto{font-variant-numeric:tabular-nums;white-space:nowrap;}
   .muted{color:var(--text-muted);}
   .empty{padding:40px;text-align:center;color:var(--text-muted);}
+  a.titulo{color:var(--text);text-decoration:none;}
+  a.titulo:hover{color:var(--accent-strong);text-decoration:underline;}
+  .badge-renglones{display:inline-block;margin-top:3px;font-family:ui-monospace,monospace;font-size:10.5px;padding:1px 6px;border-radius:4px;background:var(--gold-soft);color:var(--gold);font-weight:600;}
+  label.check{display:flex;align-items:center;gap:6px;font-size:13.5px;color:var(--text-muted);white-space:nowrap;}
 </style>
 </head>
 <body>
@@ -56,6 +60,10 @@
       <option value="bac" {% if fuente=='bac' %}selected{% endif %}>BAC (CABA)</option>
       <option value="pbac" {% if fuente=='pbac' %}selected{% endif %}>PBAC (Provincia)</option>
     </select>
+    <label class="check">
+      <input type="checkbox" name="renglones" value="1" {% if solo_con_renglones %}checked{% endif %}>
+      Solo con renglones cargados
+    </label>
     <button type="submit">Buscar</button>
   </form>
 
@@ -77,7 +85,10 @@
         <tr>
           <td><span class="fuente">{{ r.fuente }}</span></td>
           <td>{{ r.numero_proceso }}</td>
-          <td>{{ r.titulo or '—' }}</td>
+          <td>
+            <a class="titulo" href="{{ url_for('detalle', licitacion_id=r.id) }}">{{ r.titulo or '(sin título)' }}</a>
+            {% if r.n_renglones > 0 %}<br><span class="badge-renglones">{{ r.n_renglones }} {{ 'renglones' if r.n_renglones != 1 else 'renglón' }}</span>{% endif %}
+          </td>
           <td>{{ r.organismo or '—' }}</td>
           <td>{{ r.tipo_procedimiento or '—' }}</td>
           <td>{{ r.fecha_apertura[:10] if r.fecha_apertura else '—' }}</td>

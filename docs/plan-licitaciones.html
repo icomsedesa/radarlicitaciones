@@ -430,11 +430,13 @@ footer{ margin-top:60px; padding-top:20px; border-top:1px solid var(--border); c
           </ul>
         </div>
         <div class="phase">
-          <div class="phase-head"><span class="phase-name">Fase 1 — MVP Nación + CABA</span><span class="phase-time">3–5 semanas</span></div>
-          <p>Primer circuito completo, de punta a punta, con las dos fuentes más fáciles.</p>
+          <div class="phase-head"><span class="phase-name">Fase 1 — MVP Nación + CABA</span><span class="phase-time">en curso</span></div>
+          <p>Primer circuito completo, de punta a punta, con las tres fuentes del MVP.</p>
           <ul class="plain">
-            <li>Conectores OCDS para COMPR.AR/CONTRAT.AR y BAC, con normalización al esquema interno.</li>
-            <li>Buscador con filtros básicos: rubro, organismo, monto, palabra clave, jurisdicción.</li>
+            <li><span class="badge ok">Hecho</span> Conectores para COMPR.AR, BAC y PBAC, con normalización al esquema interno y buscador con filtros básicos.</li>
+            <li><span class="badge ok">Hecho</span> Renglones (líneas/ítems) por licitación: incluidos en la carga de BAC; para COMPR.AR se resuelven on-demand por proceso vigente vía Playwright (no están en el CSV masivo).</li>
+            <li><span class="badge risk">Hallazgo</span> El CSV masivo de COMPR.AR está ~6 semanas desfasado — para "qué puedo ofertar hoy" no alcanza, hace falta un conector contra el buscador en vivo del portal (mismo mecanismo ya construido para renglones).</li>
+            <li><span class="badge risk">Hallazgo</span> El recurso <code>bac_anual.json</code> de BAC estaba mal etiquetado (traía solo datos de 2022 pese a actualizarse a diario) — se corrigió usando <code>bac_anual.csv</code> en su lugar.</li>
             <li>Sin IA todavía — el objetivo es tener datos confiables y buscables.</li>
           </ul>
         </div>

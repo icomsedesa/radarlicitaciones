@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>{{ lic.titulo or lic.numero_proceso }} · Radar de Licitaciones</title>
+<style>
+  :root{
+    --bg:#EEF1EF; --surface:#FFFFFF; --surface-2:#E5EAE7; --border:#D4DAD6;
+    --text:#161F1B; --text-muted:#525F58; --accent:#1F5C52; --accent-strong:#123B34;
+    --accent-soft:#DCE9E4; --gold:#9C6B1F; --gold-soft:#F1E3C8;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,'Segoe UI',sans-serif;font-size:15px;}
+  .page{max-width:880px;margin:0 auto;padding:32px 20px 64px;}
+  a.back{color:var(--accent);text-decoration:none;font-size:13.5px;font-weight:600;}
+  a.back:hover{text-decoration:underline;}
+  .fuente{font-family:ui-monospace,monospace;font-size:11px;padding:2px 7px;border-radius:5px;background:var(--accent-soft);color:var(--accent-strong);font-weight:600;}
+  h1{font-size:24px;margin:14px 0 4px;text-wrap:balance;}
+  .meta{color:var(--text-muted);font-size:14px;margin-bottom:24px;}
+  .fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:28px;}
+  .field{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;}
+  .field .k{font-family:ui-monospace,monospace;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-bottom:4px;}
+  .field .v{font-size:14.5px;font-weight:600;}
+  h2{font-size:17px;margin:0 0 12px;}
+  .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--surface);margin-bottom:20px;}
+  table{border-collapse:collapse;width:100%;min-width:560px;font-size:13.5px;}
+  th{text-align:left;font-family:ui-monospace,monospace;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);background:var(--surface-2);padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap;}
+  td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  .empty{padding:30px;text-align:center;color:var(--text-muted);font-size:14px;}
+  .desc{white-space:pre-wrap;color:var(--text-muted);font-size:14px;margin-bottom:24px;}
+</style>
+</head>
+<body>
+<div class="page">
+  <a class="back" href="{{ url_for('index') }}">&larr; Volver al buscador</a>
+  <div style="margin-top:14px;"><span class="fuente">{{ lic.fuente }}</span></div>
+  <h1>{{ lic.titulo or '(sin título)' }}</h1>
+  <p class="meta">{{ lic.numero_proceso }} · {{ lic.organismo or 'organismo no informado' }} · {{ lic.jurisdiccion }}</p>
+
+  {% if lic.descripcion %}<p class="desc">{{ lic.descripcion }}</p>{% endif %}
+
+  <div class="fields">
+    <div class="field"><div class="k">Tipo de procedimiento</div><div class="v">{{ lic.tipo_procedimiento or '—' }}</div></div>
+    <div class="field"><div class="k">Estado</div><div class="v">{{ lic.estado or '—' }}</div></div>
+    <div class="field"><div class="k">Fecha de apertura</div><div class="v">{{ lic.fecha_apertura[:16].replace('T',' ') if lic.fecha_apertura else '—' }}</div></div>
+    <div class="field"><div class="k">Monto estimado</div><div class="v">{% if lic.monto_estimado %}{{ '{:,.0f}'.format(lic.monto_estimado) }} {{ lic.moneda or '' }}{% else %}—{% endif %}</div></div>
+    {% if lic.proveedor_adjudicado %}
+    <div class="field"><div class="k">Adjudicado a</div><div class="v">{{ lic.proveedor_adjudicado }}</div></div>
+    <div class="field"><div class="k">Monto adjudicado</div><div class="v">{% if lic.monto_adjudicado %}{{ '{:,.0f}'.format(lic.monto_adjudicado) }} {{ lic.moneda or '' }}{% else %}—{% endif %}</div></div>
+    {% endif %}
+  </div>
+
+  <h2>Renglones ({{ items|length }})</h2>
+  <div class="table-wrap">
+    {% if items %}
+    <table>
+      <thead>
+        <tr><th>N°</th><th>Código</th><th>Descripción</th><th>Cantidad</th><th>Unidad</th><th>Rubro / clasificación</th></tr>
+      </thead>
+      <tbody>
+        {% for it in items %}
+        <tr>
+          <td>{{ it.numero_renglon or '—' }}</td>
+          <td>{{ it.codigo_item or '—' }}</td>
+          <td>{{ it.descripcion or '—' }}</td>
+          <td>{{ it.cantidad if it.cantidad is not none else '—' }}</td>
+          <td>{{ it.unidad or '—' }}</td>
+          <td>{{ it.clasificacion or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <div class="empty">
+        Sin renglones cargados todavía para esta licitación.
+        {% if lic.fuente == 'pbac' %}PBAC no publica renglones en el portal — solo dentro del PDF del pliego.{% endif %}
+        {% if lic.fuente == 'comprar_ar' %}Corré <code>python -m src.backfill_items</code> para traer los renglones de las licitaciones vigentes.{% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+  {% if lic.url %}<p><a class="back" href="{{ lic.url }}" target="_blank" rel="noopener">Ver en el portal oficial &rarr;</a></p>{% endif %}
+</div>
+</body>
+</html>

@@ -23,8 +23,8 @@ def run(comprar_limit=None, bac_limit=None, pbac_pages=5):
 
     print("== BAC (CABA) ==")
     rows = bac.fetch(limit=bac_limit)
-    n = db.upsert_many(conn, rows)
-    print(f"  {n} filas cargadas")
+    n, n_items = db.upsert_with_items(conn, rows)
+    print(f"  {n} filas cargadas ({n_items} renglones)")
     total += n
 
     print("== PBAC (Provincia de Buenos Aires) ==")
