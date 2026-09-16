@@ -40,8 +40,8 @@ def _parse_rows(page) -> list[dict]:
         if len(tds) < 7:
             continue
         numero = tds[0].inner_text().strip()
-        if not numero:
-            continue
+        if not numero or "-" not in numero:
+            continue  # descarta filas de plantilla/placeholder de la grilla
         items.append(
             {
                 "fuente": "comprar_ar",

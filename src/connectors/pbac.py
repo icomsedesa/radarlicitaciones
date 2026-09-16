@@ -40,13 +40,19 @@ def _parse_rows(soup: BeautifulSoup) -> list[dict]:
     if not table:
         return []
     rows = []
-    for tr in table.find_all("tr")[1:]:  # salteamos header
-        tds = tr.find_all("td")
+    # ":scope >" restringe a filas directas -- el renglon de paginacion trae
+    # una tabla ANIDADA con sus propios <tr>, que find_all("tr") (recursivo
+    # por defecto) tambien matchearia como si fueran filas de datos.
+    trs = table.select(":scope > tbody > tr") or table.select(":scope > tr")
+    for tr in trs[1:]:  # salteamos header
+        if "pagination" in (tr.get("class") or []):
+            continue
+        tds = tr.find_all("td", recursive=False)
         if len(tds) < 6:
             continue
         numero = tds[0].get_text(strip=True)
-        if not numero:
-            continue
+        if not numero or "-" not in numero:
+            continue  # descarta filas de plantilla/placeholder de la grilla
         rows.append(
             {
                 "fuente": "pbac",

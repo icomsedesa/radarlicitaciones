@@ -3,24 +3,43 @@
 <head>
 <meta charset="utf-8">
 <title>{{ lic.titulo or lic.numero_proceso }} · Radar de Licitaciones</title>
+<link rel="icon" href="{{ url_for('static', filename='isotipo.png') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#EEF1EF; --surface:#FFFFFF; --surface-2:#E5EAE7; --border:#D4DAD6;
-    --text:#161F1B; --text-muted:#525F58; --accent:#1F5C52; --accent-strong:#123B34;
-    --accent-soft:#DCE9E4; --gold:#9C6B1F; --gold-soft:#F1E3C8;
+    --brand-teal:#007068; --brand-teal-dark:#00504a;
+    --bg:#EFF4F2; --surface:#FFFFFF; --surface-2:#E6EDEA; --border:#D6E0DC;
+    --text:#122420; --text-muted:#57655F;
+    --src-comprar:#007068; --src-comprar-soft:#DCEEEC;
+    --src-bac:#2E6DA4; --src-bac-soft:#DEE9F3;
+    --src-pbac:#7B4FA0; --src-pbac-soft:#EBE1F2;
+    --sem-red:#C0392B; --sem-amber:#B8860B; --sem-green:#4E8F1C; --sem-grey:#8A9490;
   }
   *{box-sizing:border-box;}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,'Segoe UI',sans-serif;font-size:15px;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Public Sans',-apple-system,'Segoe UI',sans-serif;font-size:15px;}
   .page{max-width:880px;margin:0 auto;padding:32px 20px 64px;}
-  a.back{color:var(--accent);text-decoration:none;font-size:13.5px;font-weight:600;}
+  a.back{color:var(--brand-teal);text-decoration:none;font-size:13.5px;font-weight:600;}
   a.back:hover{text-decoration:underline;}
-  .fuente{font-family:ui-monospace,monospace;font-size:11px;padding:2px 7px;border-radius:5px;background:var(--accent-soft);color:var(--accent-strong);font-weight:600;}
+  .badge-fuente{font-family:ui-monospace,monospace;font-size:11px;padding:2px 8px;border-radius:5px;font-weight:700;}
+  .pill-comprar{background:var(--src-comprar-soft);color:var(--src-comprar);}
+  .pill-bac{background:var(--src-bac-soft);color:var(--src-bac);}
+  .pill-pbac{background:var(--src-pbac-soft);color:var(--src-pbac);}
   h1{font-size:24px;margin:14px 0 4px;text-wrap:balance;}
-  .meta{color:var(--text-muted);font-size:14px;margin-bottom:24px;}
+  .meta{color:var(--text-muted);font-size:14px;margin-bottom:6px;}
+  a.oficial{display:inline-block;margin-bottom:20px;font-size:13.5px;font-weight:600;color:var(--brand-teal);text-decoration:none;}
+  a.oficial:hover{text-decoration:underline;}
   .fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:28px;}
   .field{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;}
   .field .k{font-family:ui-monospace,monospace;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-bottom:4px;}
   .field .v{font-size:14.5px;font-weight:600;}
+  .faltan{display:inline-flex;align-items:center;gap:6px;}
+  .faltan::before{content:"";width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .faltan.rojo{color:var(--sem-red);} .faltan.rojo::before{background:var(--sem-red);}
+  .faltan.amarillo{color:var(--sem-amber);} .faltan.amarillo::before{background:var(--sem-amber);}
+  .faltan.verde{color:var(--sem-green);} .faltan.verde::before{background:var(--sem-green);}
+  .faltan.cerrada,.faltan.sin_fecha{color:var(--sem-grey);} .faltan.cerrada::before,.faltan.sin_fecha::before{background:var(--sem-grey);}
   h2{font-size:17px;margin:0 0 12px;}
   .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--surface);margin-bottom:20px;}
   table{border-collapse:collapse;width:100%;min-width:560px;font-size:13.5px;}
@@ -34,9 +53,10 @@
 <body>
 <div class="page">
   <a class="back" href="{{ url_for('index') }}">&larr; Volver al buscador</a>
-  <div style="margin-top:14px;"><span class="fuente">{{ lic.fuente }}</span></div>
+  <div style="margin-top:14px;"><span class="badge-fuente pill-{{ lic.fuente.replace('_ar','') }}">{{ lic.fuente }}</span></div>
   <h1>{{ lic.titulo or '(sin título)' }}</h1>
   <p class="meta">{{ lic.numero_proceso }} · {{ lic.organismo or 'organismo no informado' }} · {{ lic.jurisdiccion }}</p>
+  {% if lic.url %}<a class="oficial" href="{{ lic.url }}" target="_blank" rel="noopener">Ver en el portal oficial ↗</a>{% endif %}
 
   {% if lic.descripcion %}<p class="desc">{{ lic.descripcion }}</p>{% endif %}
 
@@ -44,6 +64,7 @@
     <div class="field"><div class="k">Tipo de procedimiento</div><div class="v">{{ lic.tipo_procedimiento or '—' }}</div></div>
     <div class="field"><div class="k">Estado</div><div class="v">{{ lic.estado or '—' }}</div></div>
     <div class="field"><div class="k">Fecha de apertura</div><div class="v">{{ lic.fecha_apertura[:16].replace('T',' ') if lic.fecha_apertura else '—' }}</div></div>
+    <div class="field"><div class="k">Faltan</div><div class="v">{% if lic.faltan %}<span class="faltan {{ lic.urgencia }}">{{ lic.faltan }}</span>{% else %}—{% endif %}</div></div>
     <div class="field"><div class="k">Monto estimado</div><div class="v">{% if lic.monto_estimado %}{{ '{:,.0f}'.format(lic.monto_estimado) }} {{ lic.moneda or '' }}{% else %}—{% endif %}</div></div>
     {% if lic.proveedor_adjudicado %}
     <div class="field"><div class="k">Adjudicado a</div><div class="v">{{ lic.proveedor_adjudicado }}</div></div>
@@ -79,8 +100,6 @@
       </div>
     {% endif %}
   </div>
-
-  {% if lic.url %}<p><a class="back" href="{{ lic.url }}" target="_blank" rel="noopener">Ver en el portal oficial &rarr;</a></p>{% endif %}
 </div>
 </body>
 </html>

@@ -12,6 +12,12 @@ PoC del buscador propio de licitaciones públicas argentinas (alternativa a Falc
 
 Pendiente: municipios de la Provincia de Buenos Aires.
 
+## Buscador web
+
+Marca IcomSalud aplicada (`static/`: logo, isotipo/favicon, colores). Fuentes, "Con renglones" y "Vigentes hoy" son pastillas-filtro (no dropdown/checkbox); cada fuente tiene su color y se repite igual en la columna Fuente de la tabla. Columna "Faltan" con semáforo rojo/amarillo/verde/gris según cuánto falta para la apertura (`app.py:_texto_faltante`), con pastillas para filtrar por ese bucket y filtros de fecha desde/hasta. El link "↗" junto al título va al portal oficial cuando se conoce (BAC siempre; COMPR.AR solo en los procesos ya procesados por `backfill_items`, que captura la URL real al scrapear los renglones; PBAC no tiene URL de detalle sin sesión, así que linkea al listado general).
+
+Pendiente conocido: los renglones de COMPR.AR cargados en la primera corrida de `backfill_items` (antes de que capturara la URL) no tienen link oficial — se completa solo, corriendo `backfill_items` de nuevo, con procesos nuevos.
+
 ## Hallazgos importantes del recorrido (para no repetir la investigación)
 
 - **COMPR.AR no trae renglones en su CSV masivo.** Los ítems de cada proceso ("Detalle de productos o servicios") solo existen en la página individual del proceso en comprar.gob.ar, detrás de un buscador ASP.NET/DevExpress. `src/connectors/comprar_ar_items.py` lo resuelve con Playwright (headless). Por el volumen, `backfill_items.py` solo trae renglones de licitaciones **vigentes** (apertura entre hoy y +180 días — ese límite superior existe porque el CSV de la ONC tiene errores de carga propios, con años como "2099" o "3015" usados como placeholder).
@@ -20,6 +26,8 @@ Pendiente: municipios de la Provincia de Buenos Aires.
 - **El paginador del buscador en vivo de COMPR.AR es engañoso**: solo muestra ~10 números de página con un link "..." que en realidad apunta a la página siguiente (no "revela más" páginas). Contar los links visibles del paginador da un total incorrecto — hay que leer el conteo real del encabezado "Se han encontrado (N) resultados" y calcular las páginas a partir de ahí (`comprar_ar_live._total_paginas`).
 - **La columna "Etapa" del CSV masivo de COMPR.AR (Única/Múltiple) no es un estado real** — se guardaba por error como `estado`, mezclándose visualmente con "Publicado" (que sí viene del buscador en vivo). Corregido: el CSV masivo ya no completa `estado`, queda en null hasta que `refresh_live` lo actualiza con el dato real.
 - **Resultado de correr `refresh_live` por primera vez**: de 128.951 procesos en el CSV masivo, solo 467 están realmente "Publicado" (abiertos) hoy — confirma que casi todo el volumen del CSV es historial cerrado, no oportunidades vigentes.
+- **El "active" de BAC no equivale al "Publicado" de COMPR.AR.** Hay procesos BAC con `estado="active"` y fecha de apertura ya pasada — ese campo en OCDS refleja que el registro sigue en trámite, no que siga aceptando ofertas. Por eso el orden por defecto del buscador prioriza por la fecha real (bucket de urgencia), no por `estado`, que significa cosas distintas según la fuente.
+- **Bug repetido en dos conectores**: tanto `comprar_ar_live.py` como `pbac.py` usaban un selector de filas (`find_all("tr")` / `locator("tr")`) que también agarraba las filas de la tabla ANIDADA dentro del renglón de paginación, colando registros basura (`numero_proceso` = "1", "...", etc.). Se corrigió restringiendo a filas hijas directas (`:scope > tbody > tr` en BeautifulSoup, `> tbody > tr` en Playwright) más una validación de que el número de proceso tenga guiones.
 
 ## Setup
 

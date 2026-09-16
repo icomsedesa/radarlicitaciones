@@ -58,7 +58,12 @@ def _texto_faltante(fecha_apertura, urgencia):
         return f"{max(1, int(segundos // 60))} min"
     if horas < 48:
         return f"{int(horas)} h"
-    return f"{int(horas // 24)} días"
+    dias = int(horas // 24)
+    if dias > 730:
+        # el CSV masivo de COMPR.AR tiene fechas placeholder ("2099", "3015")
+        # que no son aperturas reales -- se muestran acotadas, no como dato literal
+        return f"+{dias // 365} años"
+    return f"{dias} días"
 
 
 @app.route("/")
@@ -95,7 +100,12 @@ def index():
 
     where_sql = f"WHERE {' AND '.join(where)}" if where else ""
     having_sql = "HAVING COUNT(i.id) > 0" if solo_con_renglones else ""
-    order_sql = "base.fecha_apertura ASC" if (solo_vigentes or urgencia) else "base.fecha_apertura DESC"
+    # con apertura futura primero (mas proxima primero), despues el resto.
+    # OJO: "estado" no sirve como criterio aca -- su significado varia por
+    # fuente (el "active" de BAC no implica que siga vigente para ofertar,
+    # a diferencia del "Publicado" de COMPR.AR). La fecha real es lo unico
+    # comparable entre las tres fuentes.
+    order_sql = "CASE WHEN base.urgencia IN ('rojo','amarillo','verde') THEN 0 ELSE 1 END, base.fecha_apertura ASC"
 
     query = f"""
         WITH base AS (

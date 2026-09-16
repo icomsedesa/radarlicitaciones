@@ -3,79 +3,157 @@
 <head>
 <meta charset="utf-8">
 <title>Radar de Licitaciones</title>
+<link rel="icon" href="{{ url_for('static', filename='isotipo.png') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#EEF1EF; --surface:#FFFFFF; --surface-2:#E5EAE7; --border:#D4DAD6;
-    --text:#161F1B; --text-muted:#525F58; --accent:#1F5C52; --accent-strong:#123B34;
-    --accent-soft:#DCE9E4; --gold:#9C6B1F; --gold-soft:#F1E3C8;
+    --brand-teal:#007068; --brand-teal-dark:#00504a; --brand-green:#6faf2a;
+    --bg:#EFF4F2; --surface:#FFFFFF; --surface-2:#E6EDEA; --border:#D6E0DC;
+    --text:#122420; --text-muted:#57655F;
+
+    --src-comprar:#007068; --src-comprar-soft:#DCEEEC;
+    --src-bac:#2E6DA4; --src-bac-soft:#DEE9F3;
+    --src-pbac:#7B4FA0; --src-pbac-soft:#EBE1F2;
+
+    --sem-red:#C0392B; --sem-red-soft:#F7DCD8;
+    --sem-amber:#B8860B; --sem-amber-soft:#F3E7C6;
+    --sem-green:#4E8F1C; --sem-green-soft:#E2EFD5;
+    --sem-grey:#8A9490; --sem-grey-soft:#E8ECEA;
+
+    --shadow:0 1px 2px rgba(10,30,25,.06), 0 6px 18px -10px rgba(10,30,25,.18);
   }
   *{box-sizing:border-box;}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,'Segoe UI',sans-serif;font-size:15px;}
-  .page{max-width:1080px;margin:0 auto;padding:32px 20px 64px;}
-  header{margin-bottom:24px;}
-  .eyebrow{font-family:ui-monospace,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
-  h1{font-size:26px;margin:0 0 4px;}
-  .sub{color:var(--text-muted);margin:0 0 18px;font-size:14px;}
-  .stats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;}
-  .chip{font-family:ui-monospace,monospace;font-size:12px;padding:5px 10px;border-radius:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);}
-  .chip b{color:var(--text);}
-  form{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;}
-  input[type=text]{flex:1;min-width:240px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface);color:var(--text);}
-  select{padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface);color:var(--text);}
-  button{padding:10px 18px;border:none;border-radius:8px;background:var(--accent);color:#F3F8F6;font-weight:600;cursor:pointer;}
-  button:hover{background:var(--accent-strong);}
-  .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--surface);}
-  table{border-collapse:collapse;width:100%;min-width:760px;font-size:13.5px;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Public Sans',-apple-system,'Segoe UI',sans-serif;font-size:15px;}
+  a{color:inherit;}
+
+  /* ---------- top bar ---------- */
+  .topbar{background:linear-gradient(135deg,var(--brand-teal),var(--brand-teal-dark));color:#fff;padding:22px 24px;}
+  .topbar-inner{max-width:1240px;margin:0 auto;display:flex;align-items:center;gap:16px;}
+  .topbar img{height:40px;width:auto;display:block;}
+  .topbar h1{font-family:'Poppins',sans-serif;font-weight:800;font-size:clamp(24px,3.4vw,34px);letter-spacing:.02em;margin:0;text-transform:uppercase;}
+  .topbar .tag{font-size:13px;color:rgba(255,255,255,.8);margin-top:2px;}
+
+  .page{max-width:1240px;margin:0 auto;padding:24px 24px 64px;}
+
+  /* ---------- pills ---------- */
+  .pill{
+    display:inline-flex;align-items:center;gap:6px;font-family:ui-monospace,monospace;font-size:12.5px;
+    font-weight:600;padding:6px 12px;border-radius:999px;border:1.5px solid transparent;
+    text-decoration:none;white-space:nowrap;cursor:pointer;background:var(--surface-2);color:var(--text-muted);
+    transition:transform .06s ease;
+  }
+  .pill:hover{transform:translateY(-1px);}
+  .pill b{font-weight:700;}
+  .pill.active{border-color:currentColor;}
+
+  .pill-comprar{background:var(--src-comprar-soft);color:var(--src-comprar);}
+  .pill-bac{background:var(--src-bac-soft);color:var(--src-bac);}
+  .pill-pbac{background:var(--src-pbac-soft);color:var(--src-pbac);}
+  .pill-all{background:var(--surface-2);color:var(--text);}
+
+  .pill-rojo{background:var(--sem-red-soft);color:var(--sem-red);}
+  .pill-amarillo{background:var(--sem-amber-soft);color:var(--sem-amber);}
+  .pill-verde{background:var(--sem-green-soft);color:var(--sem-green);}
+
+  .pill-group{display:flex;flex-wrap:wrap;gap:8px;}
+
+  /* ---------- filter bar ---------- */
+  .filterbar{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow);margin-bottom:22px;}
+  .filterbar form{display:flex;flex-direction:column;gap:14px;}
+  .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+  .row.between{justify-content:space-between;}
+  input[type=text],input[type=date]{padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface);color:var(--text);font-family:inherit;}
+  input[type=text]{flex:1;min-width:240px;}
+  .date-field{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-muted);}
+  button.submit{padding:10px 20px;border:none;border-radius:8px;background:var(--brand-teal);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;font-size:14px;}
+  button.submit:hover{background:var(--brand-teal-dark);}
+  .sep{width:1px;align-self:stretch;background:var(--border);margin:0 2px;}
+  .label-mini{font-family:ui-monospace,monospace;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-right:2px;}
+
+  .muted{color:var(--text-muted);}
+  .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;min-width:920px;font-size:13.5px;}
   th{text-align:left;font-family:ui-monospace,monospace;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);background:var(--surface-2);padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap;}
   td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top;}
   tr:last-child td{border-bottom:none;}
-  .fuente{font-family:ui-monospace,monospace;font-size:11px;padding:2px 7px;border-radius:5px;background:var(--accent-soft);color:var(--accent-strong);font-weight:600;}
+  .badge-fuente{font-family:ui-monospace,monospace;font-size:11px;padding:2px 8px;border-radius:5px;font-weight:700;white-space:nowrap;}
   .monto{font-variant-numeric:tabular-nums;white-space:nowrap;}
-  .muted{color:var(--text-muted);}
   .empty{padding:40px;text-align:center;color:var(--text-muted);}
-  a.titulo{color:var(--text);text-decoration:none;}
-  a.titulo:hover{color:var(--accent-strong);text-decoration:underline;}
-  .badge-renglones{display:inline-block;margin-top:3px;font-family:ui-monospace,monospace;font-size:10.5px;padding:1px 6px;border-radius:4px;background:var(--gold-soft);color:var(--gold);font-weight:600;}
-  label.check{display:flex;align-items:center;gap:6px;font-size:13.5px;color:var(--text-muted);white-space:nowrap;}
-  .estado{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;}
-  .estado::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--text-muted);display:inline-block;}
-  .estado.vigente{color:var(--accent-strong);}
-  .estado.vigente::before{background:var(--accent);}
+
+  .titulo-wrap{display:flex;align-items:baseline;gap:6px;}
+  a.titulo{color:var(--text);text-decoration:none;font-weight:600;}
+  a.titulo:hover{color:var(--brand-teal-dark);text-decoration:underline;}
+  a.oficial{color:var(--text-muted);text-decoration:none;font-size:12px;flex-shrink:0;}
+  a.oficial:hover{color:var(--brand-teal);}
+  .badge-renglones{display:inline-block;margin-top:3px;font-family:ui-monospace,monospace;font-size:10.5px;padding:1px 6px;border-radius:4px;background:#F1E3C8;color:#9C6B1F;font-weight:600;}
+
+  .estado-txt{font-size:12.5px;color:var(--text-muted);}
+
+  .faltan{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:13px;white-space:nowrap;}
+  .faltan::before{content:"";width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .faltan.rojo{color:var(--sem-red);} .faltan.rojo::before{background:var(--sem-red);}
+  .faltan.amarillo{color:var(--sem-amber);} .faltan.amarillo::before{background:var(--sem-amber);}
+  .faltan.verde{color:var(--sem-green);} .faltan.verde::before{background:var(--sem-green);}
+  .faltan.cerrada,.faltan.sin_fecha{color:var(--sem-grey);} .faltan.cerrada::before,.faltan.sin_fecha::before{background:var(--sem-grey);}
 </style>
 </head>
 <body>
-<div class="page">
-  <header>
-    <p class="eyebrow">Radar de Licitaciones · PoC</p>
-    <h1>Buscador de licitaciones públicas</h1>
-    <p class="sub">Nación (COMPR.AR) + CABA (BAC) + Provincia de Buenos Aires (PBAC), unificados en un solo lugar.</p>
-    <div class="stats">
-      {% for f in por_fuente %}
-        <span class="chip">{{ f.fuente }}: <b>{{ f.c }}</b></span>
-      {% endfor %}
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <img src="{{ url_for('static', filename='logo-reverse.png') }}" alt="IcomSalud" style="height:34px;background:transparent;">
+    <div>
+      <h1>Radar de Licitaciones</h1>
+      <p class="tag">Nación (COMPR.AR) · CABA (BAC) · Provincia de Buenos Aires (PBAC) — unificadas en un solo lugar</p>
     </div>
-  </header>
+  </div>
+</div>
 
-  <form method="get">
-    <input type="text" name="q" value="{{ q }}" placeholder="Buscar por título, descripción u organismo...">
-    <select name="fuente">
-      <option value="" {% if not fuente %}selected{% endif %}>Todas las fuentes</option>
-      <option value="comprar_ar" {% if fuente=='comprar_ar' %}selected{% endif %}>COMPR.AR (Nación)</option>
-      <option value="bac" {% if fuente=='bac' %}selected{% endif %}>BAC (CABA)</option>
-      <option value="pbac" {% if fuente=='pbac' %}selected{% endif %}>PBAC (Provincia)</option>
-    </select>
-    <label class="check">
-      <input type="checkbox" name="renglones" value="1" {% if solo_con_renglones %}checked{% endif %}>
-      Solo con renglones cargados
-    </label>
-    <label class="check">
-      <input type="checkbox" name="vigentes" value="1" {% if solo_vigentes %}checked{% endif %}>
-      Solo vigentes (se puede ofertar hoy)
-    </label>
-    <button type="submit">Buscar</button>
-  </form>
+<div class="page">
 
-  <p class="muted" style="margin:-10px 0 14px;font-size:13px;">
+  <div class="filterbar">
+    <form method="get">
+      <div class="row">
+        <input type="text" name="q" value="{{ q }}" placeholder="Buscar por título, descripción u organismo...">
+        <button class="submit" type="submit">Buscar</button>
+      </div>
+
+      <div class="row between">
+        <div class="pill-group">
+          <a class="pill pill-all {{ 'active' if not fuente else '' }}" href="{{ url_with(fuente=None) }}">Todas <b>{{ (por_fuente.values()|sum) }}</b></a>
+          {% for slug, label in fuentes %}
+            <a class="pill pill-{{ slug.replace('_ar','') }} {{ 'active' if fuente==slug else '' }}" href="{{ url_with(fuente=(None if fuente==slug else slug)) }}">{{ label }} <b>{{ por_fuente.get(slug, 0) }}</b></a>
+          {% endfor %}
+        </div>
+        <div class="pill-group">
+          <a class="pill {{ 'active' if solo_con_renglones else '' }}" href="{{ url_with(renglones=(None if solo_con_renglones else True)) }}">Con renglones</a>
+          <a class="pill {{ 'active' if solo_vigentes else '' }}" href="{{ url_with(vigentes=(None if solo_vigentes else True)) }}">Vigentes hoy</a>
+        </div>
+      </div>
+
+      <div class="row between">
+        <div class="row">
+          <span class="label-mini">Apertura</span>
+          <div class="pill-group">
+            <a class="pill pill-rojo {{ 'active' if urgencia=='rojo' else '' }}" href="{{ url_with(urgencia=(None if urgencia=='rojo' else 'rojo')) }}">● Urgente (&lt;48h)</a>
+            <a class="pill pill-amarillo {{ 'active' if urgencia=='amarillo' else '' }}" href="{{ url_with(urgencia=(None if urgencia=='amarillo' else 'amarillo')) }}">● Pronto (&lt;7 días)</a>
+            <a class="pill pill-verde {{ 'active' if urgencia=='verde' else '' }}" href="{{ url_with(urgencia=(None if urgencia=='verde' else 'verde')) }}">● Con tiempo</a>
+          </div>
+          <div class="sep"></div>
+          <div class="date-field">
+            desde <input type="date" name="desde" value="{{ apertura_desde }}">
+          </div>
+          <div class="date-field">
+            hasta <input type="date" name="hasta" value="{{ apertura_hasta }}">
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <p class="muted" style="margin:-8px 0 14px;font-size:13px;">
     Mostrando {{ shown }} de {{ total }} resultados
   </p>
 
@@ -85,22 +163,26 @@
       <thead>
         <tr>
           <th>Fuente</th><th>N° proceso</th><th>Título</th><th>Organismo</th>
-          <th>Tipo</th><th>Apertura</th><th>Estado</th><th>Monto est.</th><th>Adjudicado a</th>
+          <th>Tipo</th><th>Apertura</th><th>Faltan</th><th>Estado</th><th>Monto est.</th><th>Adjudicado a</th>
         </tr>
       </thead>
       <tbody>
         {% for r in rows %}
         <tr>
-          <td><span class="fuente">{{ r.fuente }}</span></td>
+          <td><span class="badge-fuente pill-{{ r.fuente.replace('_ar','') }}">{{ r.fuente }}</span></td>
           <td>{{ r.numero_proceso }}</td>
           <td>
-            <a class="titulo" href="{{ url_for('detalle', licitacion_id=r.id) }}">{{ r.titulo or '(sin título)' }}</a>
-            {% if r.n_renglones > 0 %}<br><span class="badge-renglones">{{ r.n_renglones }} {{ 'renglones' if r.n_renglones != 1 else 'renglón' }}</span>{% endif %}
+            <div class="titulo-wrap">
+              <a class="titulo" href="{{ url_for('detalle', licitacion_id=r.id) }}">{{ r.titulo or '(sin título)' }}</a>
+              {% if r.url %}<a class="oficial" href="{{ r.url }}" target="_blank" rel="noopener" title="Ver en el portal oficial">↗</a>{% endif %}
+            </div>
+            {% if r.n_renglones > 0 %}<span class="badge-renglones">{{ r.n_renglones }} {{ 'renglones' if r.n_renglones != 1 else 'renglón' }}</span>{% endif %}
           </td>
           <td>{{ r.organismo or '—' }}</td>
           <td>{{ r.tipo_procedimiento or '—' }}</td>
-          <td>{{ r.fecha_apertura[:10] if r.fecha_apertura else '—' }}</td>
-          <td>{% if r.estado %}<span class="estado {{ 'vigente' if r.estado in ('Publicado','active') else '' }}">{{ r.estado }}</span>{% else %}—{% endif %}</td>
+          <td>{{ r.fecha_apertura[:16].replace('T',' ') if r.fecha_apertura else '—' }}</td>
+          <td>{% if r.faltan %}<span class="faltan {{ r.urgencia }}">{{ r.faltan }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+          <td><span class="estado-txt">{{ r.estado or '—' }}</span></td>
           <td class="monto">{% if r.monto_estimado %}{{ '{:,.0f}'.format(r.monto_estimado) }} {{ r.moneda or '' }}{% else %}—{% endif %}</td>
           <td>{{ r.proveedor_adjudicado or '—' }}</td>
         </tr>
