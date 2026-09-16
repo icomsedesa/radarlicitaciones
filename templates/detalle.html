@@ -15,6 +15,7 @@
     --src-comprar:#007068; --src-comprar-soft:#DCEEEC;
     --src-bac:#2E6DA4; --src-bac-soft:#DEE9F3;
     --src-pbac:#7B4FA0; --src-pbac-soft:#EBE1F2;
+    --src-muni:#B8622E; --src-muni-soft:#F3E1D3;
     --sem-red:#C0392B; --sem-amber:#B8860B; --sem-green:#4E8F1C; --sem-grey:#8A9490;
   }
   *{box-sizing:border-box;}
@@ -26,6 +27,7 @@
   .pill-comprar{background:var(--src-comprar-soft);color:var(--src-comprar);}
   .pill-bac{background:var(--src-bac-soft);color:var(--src-bac);}
   .pill-pbac{background:var(--src-pbac-soft);color:var(--src-pbac);}
+  .pill-muni{background:var(--src-muni-soft);color:var(--src-muni);}
   h1{font-size:24px;margin:14px 0 4px;text-wrap:balance;}
   .meta{color:var(--text-muted);font-size:14px;margin-bottom:6px;}
   a.oficial{display:inline-block;margin-bottom:20px;font-size:13.5px;font-weight:600;color:var(--brand-teal);text-decoration:none;}
@@ -53,7 +55,7 @@
 <body>
 <div class="page">
   <a class="back" href="{{ url_for('index') }}">&larr; Volver al buscador</a>
-  <div style="margin-top:14px;"><span class="badge-fuente pill-{{ lic.fuente.replace('_ar','') }}">{{ lic.fuente }}</span></div>
+  <div style="margin-top:14px;"><span class="badge-fuente pill-{{ fuente_clase(lic.fuente) }}">{{ lic.fuente }}</span></div>
   <h1>{{ lic.titulo or '(sin título)' }}</h1>
   <p class="meta">{{ lic.numero_proceso }} · {{ lic.organismo or 'organismo no informado' }} · {{ lic.jurisdiccion }}</p>
   {% if lic.url %}<a class="oficial" href="{{ lic.url }}" target="_blank" rel="noopener">Ver en el portal oficial ↗</a>{% endif %}

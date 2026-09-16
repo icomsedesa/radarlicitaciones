@@ -9,9 +9,10 @@ import sys
 
 from src import db
 from src.connectors import bac, comprar_ar, pbac
+from src.connectors.municipios import la_matanza, san_miguel, sibom
 
 
-def run(comprar_limit=None, bac_limit=None, pbac_pages=5):
+def run(comprar_limit=None, bac_limit=None, pbac_pages=5, municipios=True):
     conn = db.get_connection()
     total = 0
 
@@ -32,6 +33,28 @@ def run(comprar_limit=None, bac_limit=None, pbac_pages=5):
     n = db.upsert_many(conn, rows)
     print(f"  {n} filas cargadas")
     total += n
+
+    if municipios:
+        print("== Municipio de San Miguel ==")
+        rows = san_miguel.fetch()
+        n = db.upsert_many(conn, rows)
+        print(f"  {n} filas cargadas")
+        total += n
+
+        print("== Municipio de La Matanza ==")
+        rows = la_matanza.fetch()
+        n = db.upsert_many(conn, rows)
+        print(f"  {n} filas cargadas")
+        total += n
+
+        print("== Municipio de Campana (vía SIBOM) ==")
+        rows = sibom.fetch(
+            city_id=18, fuente="muni_campana",
+            organismo="Municipalidad de Campana", jurisdiccion="Municipio de Campana (GBA)",
+        )
+        n = db.upsert_many(conn, rows)
+        print(f"  {n} filas cargadas")
+        total += n
 
     conn.close()
     print(f"\nTotal: {total} licitaciones en {db.DB_PATH}")

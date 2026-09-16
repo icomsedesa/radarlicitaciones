@@ -16,6 +16,7 @@
     --src-comprar:#007068; --src-comprar-soft:#DCEEEC;
     --src-bac:#2E6DA4; --src-bac-soft:#DEE9F3;
     --src-pbac:#7B4FA0; --src-pbac-soft:#EBE1F2;
+    --src-muni:#B8622E; --src-muni-soft:#F3E1D3;
 
     --sem-red:#C0392B; --sem-red-soft:#F7DCD8;
     --sem-amber:#B8860B; --sem-amber-soft:#F3E7C6;
@@ -51,6 +52,7 @@
   .pill-comprar{background:var(--src-comprar-soft);color:var(--src-comprar);}
   .pill-bac{background:var(--src-bac-soft);color:var(--src-bac);}
   .pill-pbac{background:var(--src-pbac-soft);color:var(--src-pbac);}
+  .pill-muni{background:var(--src-muni-soft);color:var(--src-muni);}
   .pill-all{background:var(--surface-2);color:var(--text);}
 
   .pill-rojo{background:var(--sem-red-soft);color:var(--sem-red);}
@@ -128,7 +130,7 @@
     <img src="{{ url_for('static', filename='logo-reverse.png') }}" alt="IcomSalud" style="height:34px;background:transparent;">
     <div>
       <h1>Radar de Licitaciones</h1>
-      <button type="button" class="jur-link" id="abrir-jurisdicciones">Jurisdicciones adheridas (3) →</button>
+      <button type="button" class="jur-link" id="abrir-jurisdicciones">Jurisdicciones adheridas (6) →</button>
     </div>
   </div>
 </div>
@@ -145,7 +147,7 @@
         <div class="pill-group">
           <a class="pill pill-all pill-clear {{ 'active' if not fuente else '' }}" data-param="fuente" data-clear="1" href="{{ url_with(fuente=None) }}">Todas <b>{{ (por_fuente.values()|sum) }}</b></a>
           {% for slug, label in fuentes %}
-            <a class="pill pill-{{ slug.replace('_ar','') }} {{ 'active' if fuente==slug else '' }}" data-param="fuente" data-value="{{ slug }}" href="{{ url_with(fuente=(None if fuente==slug else slug)) }}">{{ label }} <b>{{ por_fuente.get(slug, 0) }}</b></a>
+            <a class="pill pill-{{ fuente_clase(slug) }} {{ 'active' if fuente==slug else '' }}" data-param="fuente" data-value="{{ slug }}" href="{{ url_with(fuente=(None if fuente==slug else slug)) }}">{{ label }} <b>{{ por_fuente.get(slug, 0) }}</b></a>
           {% endfor %}
         </div>
         <div class="pill-group">
@@ -219,10 +221,34 @@
       </div>
       <span class="count">{{ '{:,}'.format(por_fuente.get('pbac', 0)) }}</span>
     </div>
+    <div class="jur-item">
+      <span class="jur-dot" style="background:var(--src-muni)"></span>
+      <div>
+        <div class="name">San Miguel</div>
+        <div class="desc">Municipio (GBA norte)</div>
+      </div>
+      <span class="count">{{ '{:,}'.format(por_fuente.get('muni_san_miguel', 0)) }}</span>
+    </div>
+    <div class="jur-item">
+      <span class="jur-dot" style="background:var(--src-muni)"></span>
+      <div>
+        <div class="name">La Matanza</div>
+        <div class="desc">Municipio (GBA oeste)</div>
+      </div>
+      <span class="count">{{ '{:,}'.format(por_fuente.get('muni_la_matanza', 0)) }}</span>
+    </div>
+    <div class="jur-item">
+      <span class="jur-dot" style="background:var(--src-muni)"></span>
+      <div>
+        <div class="name">Campana</div>
+        <div class="desc">Municipio (vía SIBOM)</div>
+      </div>
+      <span class="count">{{ '{:,}'.format(por_fuente.get('muni_campana', 0)) }}</span>
+    </div>
     <div class="jur-item proximo">
       <span class="jur-dot" style="background:var(--sem-grey)"></span>
       <div>
-        <div class="name">Municipios (Provincia de Buenos Aires)</div>
+        <div class="name">Más municipios del Gran Buenos Aires</div>
         <div class="desc">Próximamente</div>
       </div>
     </div>

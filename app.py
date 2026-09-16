@@ -14,6 +14,9 @@ FUENTES = [
     ("comprar_ar", "COMPR.AR (Nación)"),
     ("bac", "BAC (CABA)"),
     ("pbac", "PBAC (Provincia)"),
+    ("muni_san_miguel", "San Miguel"),
+    ("muni_la_matanza", "La Matanza"),
+    ("muni_campana", "Campana"),
 ]
 
 URGENCIA_CASE = """
@@ -39,6 +42,15 @@ def _url_with(**overrides):
 
 
 app.jinja_env.globals["url_with"] = _url_with
+
+
+def _fuente_clase(fuente: str) -> str:
+    if fuente in ("comprar_ar", "bac", "pbac"):
+        return fuente.replace("_ar", "")
+    return "muni"
+
+
+app.jinja_env.globals["fuente_clase"] = _fuente_clase
 
 
 def _texto_faltante(fecha_apertura, urgencia):

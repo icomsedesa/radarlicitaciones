@@ -9,8 +9,11 @@ PoC del buscador propio de licitaciones públicas argentinas (alternativa a Falc
 | COMPR.AR | Nación (bienes/servicios) | CSV propio (ONC) | Sí, on-demand por proceso (`src/backfill_items.py`, vía Playwright) |
 | BAC | CABA | OCDS 1.1 | Sí, incluidos en la carga masiva |
 | PBAC | Provincia de Buenos Aires | Scraping (ASP.NET postback) | No — PBAC no publica renglones estructurados, solo dentro del PDF del pliego |
+| Muni San Miguel | GBA norte | HTML propio (`/pliegos/`) + PDFs | No (fecha de apertura y expediente solo están dentro de los PDF, sin parsear todavía) |
+| Muni La Matanza | GBA oeste | Boletín Municipal mensual en PDF (texto real) | No |
+| Muni Campana | GBA norte | SIBOM (boletín oficial provincial compartido) | No |
 
-Pendiente: municipios de la Provincia de Buenos Aires.
+Investigados y **sin fuente digital viable hoy**: Tigre, Malvinas Argentinas, Esteban Echeverría, Capitán Sarmiento (ver hallazgos abajo). Pendientes de una segunda pasada: San Isidro (datos buenos pero el índice del sitio está roto), Vicente López, San Andrés de Giles, Chivilcoy.
 
 ## Buscador web
 
@@ -28,6 +31,11 @@ Pendiente conocido: los renglones de COMPR.AR cargados en la primera corrida de 
 - **Resultado de correr `refresh_live` por primera vez**: de 128.951 procesos en el CSV masivo, solo 467 están realmente "Publicado" (abiertos) hoy — confirma que casi todo el volumen del CSV es historial cerrado, no oportunidades vigentes.
 - **El "active" de BAC no equivale al "Publicado" de COMPR.AR.** Hay procesos BAC con `estado="active"` y fecha de apertura ya pasada — ese campo en OCDS refleja que el registro sigue en trámite, no que siga aceptando ofertas. Por eso el orden por defecto del buscador prioriza por la fecha real (bucket de urgencia), no por `estado`, que significa cosas distintas según la fuente.
 - **Bug repetido en dos conectores**: tanto `comprar_ar_live.py` como `pbac.py` usaban un selector de filas (`find_all("tr")` / `locator("tr")`) que también agarraba las filas de la tabla ANIDADA dentro del renglón de paginación, colando registros basura (`numero_proceso` = "1", "...", etc.). Se corrigió restringiendo a filas hijas directas (`:scope > tbody > tr` en BeautifulSoup, `> tbody > tr` en Playwright) más una validación de que el número de proceso tenga guiones.
+- **Ningún municipio tiene un sistema de compras online como Nación/CABA/Provincia.** Investigación sobre 11 municipios del GBA + interior bonaerense (ver `docs/plan-licitaciones.html`): ninguno tiene tabla HTML con paginación tipo "sistema de compras". Los 3 que sí se pudieron incorporar:
+  - **San Miguel**: página única acumulando TODO el histórico 2020-2026 (535 licitaciones) agrupadas por heading + links a PDFs, sin tabla. Sin fecha de apertura en el HTML.
+  - **La Matanza** (el municipio más poblado de la provincia): sin sistema de compras propio (el único link es un PDF muerto de 2017) — la fuente real es el **Boletín Municipal mensual en PDF** (texto real, no escaneado), con un patrón de redacción muy regular ("Llámase a Licitación Pública Nº X/AAAA, para el día...") que se parsea con regex vía `pdfplumber`, incluyendo fecha de apertura y monto real.
+  - **Campana**: su página propia de compras está casi vacía (1 licitación cargada a mano) — la fuente real es **SIBOM** (`sibom.slyt.gba.gob.ar`), una plataforma que comparten decenas de municipios bonaerenses para su Boletín Oficial. Cada boletín trae el texto completo de todos sus decretos en una sola página (no hace falta abrir cada decreto aparte); se filtra por la palabra "licitación" entre todo tipo de actos administrativos. El conector (`src/connectors/municipios/sibom.py`) es genérico por `city_id`, reutilizable para cualquier otro municipio que use SIBOM.
+  - **San Isidro** quedó pendiente pese a tener los mejores datos individuales (expediente, fecha de apertura, PDFs) porque el índice de licitaciones vigentes del sitio da 404, y ni la búsqueda numérica de URLs ni el portal de Boletín Oficial (bloqueado a bots headless, aunque responde a `curl` simple) permiten descubrir de forma confiable qué licitaciones 2025/2026 existen.
 
 ## Setup
 
@@ -60,4 +68,4 @@ Abre http://localhost:5000
 
 ## Estado
 
-Prueba de concepto (Fase 1 del plan): valida que la ingesta, normalización y búsqueda funcionan de punta a punta con datos reales. Todavía no tiene: alertas, deduplicación entre fuentes, ni scraping de municipios.
+Prueba de concepto (Fase 1-2 del plan): valida que la ingesta, normalización y búsqueda funcionan de punta a punta con datos reales, ya con 3 municipios del GBA sumados. Todavía no tiene: alertas, deduplicación entre fuentes, ni el resto de los municipios (San Isidro, Vicente López, San Andrés de Giles, Chivilcoy quedan para una segunda pasada; Tigre, Malvinas Argentinas, Esteban Echeverría y Capitán Sarmiento no tienen fuente digital viable hoy).

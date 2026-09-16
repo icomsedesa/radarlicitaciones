@@ -14,7 +14,7 @@
     <tbody>
       {% for r in rows %}
       <tr>
-        <td><span class="badge-fuente pill-{{ r.fuente.replace('_ar','') }}">{{ r.fuente }}</span></td>
+        <td><span class="badge-fuente pill-{{ fuente_clase(r.fuente) }}">{{ r.fuente }}</span></td>
         <td>{{ r.numero_proceso }}</td>
         <td>
           <div class="titulo-wrap">
