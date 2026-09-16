@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Radar de Licitaciones</title>
+<style>
+  :root{
+    --bg:#EEF1EF; --surface:#FFFFFF; --surface-2:#E5EAE7; --border:#D4DAD6;
+    --text:#161F1B; --text-muted:#525F58; --accent:#1F5C52; --accent-strong:#123B34;
+    --accent-soft:#DCE9E4; --gold:#9C6B1F; --gold-soft:#F1E3C8;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,'Segoe UI',sans-serif;font-size:15px;}
+  .page{max-width:1080px;margin:0 auto;padding:32px 20px 64px;}
+  header{margin-bottom:24px;}
+  .eyebrow{font-family:ui-monospace,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  h1{font-size:26px;margin:0 0 4px;}
+  .sub{color:var(--text-muted);margin:0 0 18px;font-size:14px;}
+  .stats{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;}
+  .chip{font-family:ui-monospace,monospace;font-size:12px;padding:5px 10px;border-radius:6px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);}
+  .chip b{color:var(--text);}
+  form{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;}
+  input[type=text]{flex:1;min-width:240px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface);color:var(--text);}
+  select{padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface);color:var(--text);}
+  button{padding:10px 18px;border:none;border-radius:8px;background:var(--accent);color:#F3F8F6;font-weight:600;cursor:pointer;}
+  button:hover{background:var(--accent-strong);}
+  .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;background:var(--surface);}
+  table{border-collapse:collapse;width:100%;min-width:760px;font-size:13.5px;}
+  th{text-align:left;font-family:ui-monospace,monospace;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);background:var(--surface-2);padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap;}
+  td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  .fuente{font-family:ui-monospace,monospace;font-size:11px;padding:2px 7px;border-radius:5px;background:var(--accent-soft);color:var(--accent-strong);font-weight:600;}
+  .monto{font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .muted{color:var(--text-muted);}
+  .empty{padding:40px;text-align:center;color:var(--text-muted);}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <p class="eyebrow">Radar de Licitaciones · PoC</p>
+    <h1>Buscador de licitaciones públicas</h1>
+    <p class="sub">Nación (COMPR.AR) + CABA (BAC) + Provincia de Buenos Aires (PBAC), unificados en un solo lugar.</p>
+    <div class="stats">
+      {% for f in por_fuente %}
+        <span class="chip">{{ f.fuente }}: <b>{{ f.c }}</b></span>
+      {% endfor %}
+    </div>
+  </header>
+
+  <form method="get">
+    <input type="text" name="q" value="{{ q }}" placeholder="Buscar por título, descripción u organismo...">
+    <select name="fuente">
+      <option value="" {% if not fuente %}selected{% endif %}>Todas las fuentes</option>
+      <option value="comprar_ar" {% if fuente=='comprar_ar' %}selected{% endif %}>COMPR.AR (Nación)</option>
+      <option value="bac" {% if fuente=='bac' %}selected{% endif %}>BAC (CABA)</option>
+      <option value="pbac" {% if fuente=='pbac' %}selected{% endif %}>PBAC (Provincia)</option>
+    </select>
+    <button type="submit">Buscar</button>
+  </form>
+
+  <p class="muted" style="margin:-10px 0 14px;font-size:13px;">
+    Mostrando {{ shown }} de {{ total }} resultados
+  </p>
+
+  <div class="table-wrap">
+    {% if rows %}
+    <table>
+      <thead>
+        <tr>
+          <th>Fuente</th><th>N° proceso</th><th>Título</th><th>Organismo</th>
+          <th>Tipo</th><th>Apertura</th><th>Monto est.</th><th>Adjudicado a</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td><span class="fuente">{{ r.fuente }}</span></td>
+          <td>{{ r.numero_proceso }}</td>
+          <td>{{ r.titulo or '—' }}</td>
+          <td>{{ r.organismo or '—' }}</td>
+          <td>{{ r.tipo_procedimiento or '—' }}</td>
+          <td>{{ r.fecha_apertura[:10] if r.fecha_apertura else '—' }}</td>
+          <td class="monto">{% if r.monto_estimado %}{{ '{:,.0f}'.format(r.monto_estimado) }} {{ r.moneda or '' }}{% else %}—{% endif %}</td>
+          <td>{{ r.proveedor_adjudicado or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <div class="empty">Sin resultados para esta búsqueda.</div>
+    {% endif %}
+  </div>
+</div>
+</body>
+</html>

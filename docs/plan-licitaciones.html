@@ -1,0 +1,528 @@
+<title>Radar de Licitaciones</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF1EF; --surface:#FFFFFF; --surface-2:#E5EAE7; --border:#D4DAD6;
+  --text:#161F1B; --text-muted:#525F58;
+  --accent:#1F5C52; --accent-strong:#123B34; --accent-soft:#DCE9E4; --on-accent:#F3F8F6;
+  --gold:#9C6B1F; --gold-soft:#F1E3C8;
+  --success:#2F7D4F; --success-soft:#DCEEE1;
+  --warning:#A2610F; --warning-soft:#F5E3C8;
+  --critical:#AE3A2E; --critical-soft:#F6DEDA;
+  --shadow: 0 1px 2px rgba(20,30,26,0.06), 0 8px 24px -12px rgba(20,30,26,0.18);
+  --serif:'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --sans:'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono:'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11licitaciones; --bg:#12171A; --surface:#171D20; --surface-2:#1E2528; --border:#2C3538;
+    --text:#E7ECE9; --text-muted:#9FACA5;
+    --accent:#63CBB4; --accent-strong:#8FE0CE; --accent-soft:rgba(99,203,180,0.14); --on-accent:#0D211D;
+    --gold:#E0AC52; --gold-soft:rgba(224,172,82,0.14);
+    --success:#57C583; --success-soft:rgba(87,197,131,0.14);
+    --warning:#E0A555; --warning-soft:rgba(224,165,85,0.14);
+    --critical:#E37868; --critical-soft:rgba(227,120,104,0.14);
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12171A; --surface:#171D20; --surface-2:#1E2528; --border:#2C3538;
+  --text:#E7ECE9; --text-muted:#9FACA5;
+  --accent:#63CBB4; --accent-strong:#8FE0CE; --accent-soft:rgba(99,203,180,0.14); --on-accent:#0D211D;
+  --gold:#E0AC52; --gold-soft:rgba(224,172,82,0.14);
+  --success:#57C583; --success-soft:rgba(87,197,131,0.14);
+  --warning:#E0A555; --warning-soft:rgba(224,165,85,0.14);
+  --critical:#E37868; --critical-soft:rgba(227,120,104,0.14);
+  --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+}
+
+*{box-sizing:border-box;}
+body{
+  margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
+  font-size:16px; line-height:1.55; -webkit-font-smoothing:antialiased;
+}
+::selection{ background:var(--accent-soft); }
+
+.page{
+  display:grid;
+  grid-template-columns: 230px minmax(0,780px);
+  gap:56px;
+  justify-content:center;
+  max-width:1180px;
+  margin:0 auto;
+  padding:56px 24px 96px;
+}
+@media (max-width: 880px){
+  .page{ grid-template-columns: 1fr; padding:32px 18px 72px; gap:28px; }
+  .toc{ position:static !important; order:2; }
+}
+
+/* ---------- TOC ---------- */
+.toc{ position:sticky; top:40px; align-self:start; }
+.toc-label{
+  font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--text-muted); margin:0 0 10px;
+}
+.toc nav{ display:flex; flex-direction:column; gap:2px; border-left:2px solid var(--border); }
+.toc a{
+  display:block; padding:6px 0 6px 14px; color:var(--text-muted); text-decoration:none;
+  font-size:13.5px; border-left:2px solid transparent; margin-left:-2px;
+}
+.toc a:hover{ color:var(--text); }
+.toc a.active{ color:var(--accent); border-left-color:var(--accent); font-weight:600; }
+
+/* ---------- Header ---------- */
+header.doc-head{ margin-bottom:44px; }
+.eyebrow{
+  font-family:var(--mono); font-size:11.5px; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--accent); display:flex; align-items:center; gap:8px; margin-bottom:14px;
+}
+.eyebrow::before{ content:""; width:7px; height:7px; border-radius:50%; background:var(--accent); display:inline-block; }
+h1{
+  font-family:var(--serif); font-weight:700; font-size:clamp(30px,4.4vw,42px);
+  line-height:1.08; margin:0 0 14px; text-wrap:balance; color:var(--text);
+}
+.dek{ font-size:17px; color:var(--text-muted); max-width:62ch; margin:0 0 22px; }
+.meta-row{ display:flex; flex-wrap:wrap; gap:8px; }
+.chip{
+  font-family:var(--mono); font-size:12px; padding:5px 10px; border-radius:6px;
+  background:var(--surface-2); border:1px solid var(--border); color:var(--text-muted);
+}
+.chip b{ color:var(--text); font-weight:600; }
+
+/* ---------- Sections ---------- */
+section{ margin-bottom:52px; scroll-margin-top:32px; }
+.sec-num{
+  font-family:var(--mono); font-size:12px; color:var(--gold); letter-spacing:.06em;
+}
+h2{
+  font-family:var(--serif); font-size:26px; font-weight:700; margin:2px 0 6px; text-wrap:balance;
+}
+h3{
+  font-family:var(--sans); font-size:15.5px; font-weight:700; margin:26px 0 10px; color:var(--text);
+}
+p{ margin:0 0 14px; max-width:68ch; }
+p.lead{ color:var(--text-muted); max-width:66ch; }
+ul.plain, ol.plain{ margin:0 0 14px; padding-left:20px; }
+ul.plain li, ol.plain li{ margin-bottom:7px; max-width:66ch; }
+strong{ color:var(--text); }
+a.inline{ color:var(--accent); }
+
+/* ---------- Table ---------- */
+.table-wrap{ overflow-x:auto; border:1px solid var(--border); border-radius:10px; background:var(--surface); box-shadow:var(--shadow); }
+table{ border-collapse:collapse; width:100%; min-width:640px; font-size:14px; }
+th{
+  text-align:left; font-family:var(--mono); font-size:11px; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--text-muted); background:var(--surface-2); padding:11px 14px; border-bottom:1px solid var(--border);
+  white-space:nowrap;
+}
+td{ padding:12px 14px; border-bottom:1px solid var(--border); vertical-align:top; }
+tr:last-child td{ border-bottom:none; }
+td.k{ font-weight:600; color:var(--text); white-space:nowrap; }
+.badge{
+  display:inline-flex; align-items:center; gap:5px; font-family:var(--mono); font-size:11.5px;
+  padding:3px 8px; border-radius:5px; font-weight:600;
+}
+.badge.ok{ background:var(--success-soft); color:var(--success); }
+.badge.warn{ background:var(--warning-soft); color:var(--warning); }
+.badge.risk{ background:var(--critical-soft); color:var(--critical); }
+.badge.info{ background:var(--accent-soft); color:var(--accent-strong); }
+
+/* ---------- Diagram ---------- */
+.diagram{
+  background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px;
+  box-shadow:var(--shadow); overflow-x:auto;
+}
+.diagram svg{ display:block; min-width:680px; width:100%; height:auto; }
+
+/* ---------- Roadmap ---------- */
+.phases{ display:flex; flex-direction:column; border-left:2px solid var(--border); margin-left:6px; }
+.phase{ position:relative; padding:2px 0 26px 26px; }
+.phase::before{
+  content:""; position:absolute; left:-7px; top:4px; width:12px; height:12px; border-radius:50%;
+  background:var(--surface); border:2px solid var(--accent);
+}
+.phase-head{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:4px; }
+.phase-name{ font-family:var(--sans); font-weight:700; font-size:16px; }
+.phase-time{ font-family:var(--mono); font-size:12px; color:var(--gold); background:var(--gold-soft); padding:2px 8px; border-radius:5px; }
+.phase p{ color:var(--text-muted); margin-bottom:8px; }
+.phase ul.plain{ margin-bottom:0; }
+
+/* ---------- Callout ---------- */
+.callout{
+  border:1px solid var(--border); border-left:3px solid var(--warning); background:var(--warning-soft);
+  border-radius:8px; padding:14px 16px; margin:14px 0 18px;
+}
+.callout.risk{ border-left-color:var(--critical); background:var(--critical-soft); }
+.callout p{ margin:0; color:var(--text); max-width:none; }
+.callout .cal-label{ font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--critical); display:block; margin-bottom:6px; }
+.callout.risk .cal-label{ color:var(--critical); }
+
+/* ---------- Next steps ---------- */
+.steps{ list-style:none; margin:0; padding:0; counter-reset:step; }
+.steps li{
+  counter-increment:step; position:relative; padding:12px 0 12px 40px; border-bottom:1px solid var(--border);
+}
+.steps li:last-child{ border-bottom:none; }
+.steps li::before{
+  content:counter(step); position:absolute; left:0; top:11px; width:24px; height:24px; border-radius:6px;
+  background:var(--accent); color:var(--on-accent); font-family:var(--mono); font-weight:600; font-size:12.5px;
+  display:flex; align-items:center; justify-content:center;
+}
+.steps b{ display:block; margin-bottom:2px; }
+.steps span{ color:var(--text-muted); font-size:14.5px; }
+
+footer{ margin-top:60px; padding-top:20px; border-top:1px solid var(--border); color:var(--text-muted); font-size:13px; }
+</style>
+
+<div class="page">
+
+  <aside class="toc">
+    <p class="toc-label">En esta página</p>
+    <nav id="tocnav">
+      <a href="#resumen">Resumen y alcance</a>
+      <a href="#competencia">Panorama competitivo</a>
+      <a href="#fuentes">Fuentes de datos</a>
+      <a href="#arquitectura">Arquitectura</a>
+      <a href="#roadmap">Roadmap por fases</a>
+      <a href="#riesgos">Riesgos y legal</a>
+      <a href="#siguientes-pasos">Primer sprint</a>
+    </nav>
+  </aside>
+
+  <main>
+    <header class="doc-head">
+      <p class="eyebrow">Plan de trabajo · Uso interno</p>
+      <h1>Réplica propia de plataforma de licitaciones públicas</h1>
+      <p class="dek">Alternativa a Falcontenders/Tenderyou construida sobre fuentes de datos públicas de contratación estatal argentina, pensada para uso interno con arquitectura abierta a comercializar más adelante.</p>
+      <div class="meta-row">
+        <span class="chip">Alcance MVP: <b>Nación + CABA + Pcia. Bs. As. + municipios PBA</b></span>
+        <span class="chip">Equipo: <b>1 dev + Claude Code</b></span>
+        <span class="chip">Orden: <b>buscador/alertas → IA de pliegos</b></span>
+      </div>
+    </header>
+
+    <section id="resumen">
+      <p class="sec-num">01</p>
+      <h2>Resumen y decisiones de alcance</h2>
+      <p class="lead">Cuatro decisiones acordadas definen este plan; todo lo que sigue está calibrado en función de ellas.</p>
+      <ul class="plain">
+        <li><strong>Objetivo:</strong> empezar como herramienta interna (reemplazar el pago a Falcontenders), diseñando el sistema para que sea multi-tenant desde la base por si más adelante se evalúa venderlo.</li>
+        <li><strong>Cobertura del MVP:</strong> Nación (COMPR.AR/CONTRAT.AR), CABA (BAC), Provincia de Buenos Aires (PBAC) y municipios de la Provincia — no las 24 jurisdicciones que cubre Licit.ar desde el día uno.</li>
+        <li><strong>Recursos:</strong> desarrollo en solitario asistido por Claude Code, sin equipo adicional por ahora.</li>
+        <li><strong>Secuencia de features:</strong> primero buscador + alertas sobre datos estructurados; el análisis de pliegos con IA queda para una segunda etapa, una vez que la ingesta de datos esté sólida.</li>
+      </ul>
+    </section>
+
+    <section id="competencia">
+      <p class="sec-num">02</p>
+      <h2>Panorama competitivo</h2>
+      <p class="lead">Tres productos ya resuelven este problema con distinto alcance. El más relevante como referencia directa es Licit.ar: mismo país, mismo modelo, y confirma que el negocio funciona con datos públicos.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Producto</th><th>Alcance</th><th>Buscador + alertas</th><th>IA sobre pliegos</th><th>Histórico / competencia</th><th>Precio orientativo</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="k">Tenderyou</td>
+              <td>España</td>
+              <td><span class="badge ok">Sí</span></td>
+              <td><span class="badge ok">Sí</span></td>
+              <td><span class="badge ok">20 años</span></td>
+              <td>Planes freemium + pago</td>
+            </tr>
+            <tr>
+              <td class="k">Falcontenders <span style="color:var(--text-muted);font-weight:400">(actual)</span></td>
+              <td>9 países LatAm, incl. Argentina</td>
+              <td><span class="badge ok">Sí</span></td>
+              <td><span class="badge warn">Parcial</span></td>
+              <td><span class="badge info">Vía API a CRM/ERP</span></td>
+              <td>Licencia corporativa (SSO)</td>
+            </tr>
+            <tr>
+              <td class="k">Licit.ar</td>
+              <td>Argentina · 24 jurisdicciones, 409 fuentes</td>
+              <td><span class="badge ok">Sí + scoring</span></td>
+              <td><span class="badge ok">Resumen + checklist</span></td>
+              <td><span class="badge ok">Dashboard equipo</span></td>
+              <td>$99.999–$249.999 ARS/mes</td>
+            </tr>
+            <tr>
+              <td class="k">Tu MVP propuesto</td>
+              <td>Nación + CABA + PBA + municipios PBA</td>
+              <td><span class="badge ok">Fase 1–3</span></td>
+              <td><span class="badge warn">Fase 4</span></td>
+              <td><span class="badge warn">Fase 5+</span></td>
+              <td>Costo de infraestructura</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="fuentes">
+      <p class="sec-num">03</p>
+      <h2>Mapa de fuentes de datos</h2>
+      <p class="lead">La dificultad real no es conseguir los datos — son públicos — sino que cada jurisdicción los publica distinto. Esta tabla ya no son supuestos: se verificó cada fuente en vivo (16-sep-2026) descargando muestras reales.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Fuente</th><th>Jurisdicción</th><th>Acceso</th><th>Formato</th><th>Estado verificado</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="k">COMPR.AR</td>
+              <td>Nación — bienes y servicios</td>
+              <td>CSV en infra.datos.gob.ar</td>
+              <td><span class="badge warn">CSV propio (no OCDS)</span></td>
+              <td><span class="badge ok">Activo · último dato ago-2026</span></td>
+            </tr>
+            <tr>
+              <td class="k">CONTRAT.AR</td>
+              <td>Nación — obra pública</td>
+              <td>CSV en infra.datos.gob.ar</td>
+              <td><span class="badge warn">CSV propio (no OCDS)</span></td>
+              <td><span class="badge risk">Sin actualizar desde 2023</span></td>
+            </tr>
+            <tr>
+              <td class="k">BAC (Buenos Aires Compras)</td>
+              <td>CABA</td>
+              <td>Dataset en data.buenosaires.gob.ar</td>
+              <td><span class="badge info">OCDS 1.1 · JSON/CSV</span></td>
+              <td><span class="badge ok">Activo · actualizado ayer, CC-BY</span></td>
+            </tr>
+            <tr>
+              <td class="k">PBAC</td>
+              <td>Provincia de Buenos Aires</td>
+              <td>Portal ASP.NET, sin API REST</td>
+              <td><span class="badge warn">HTML + export Excel (postback)</span></td>
+              <td><span class="badge risk">Scrapeable, ToS restringe uso comercial</span></td>
+            </tr>
+            <tr>
+              <td class="k">Boletín Oficial PBA + sitios municipales</td>
+              <td>~135 municipios de la Provincia</td>
+              <td>Fragmentado, portal por portal</td>
+              <td><span class="badge warn">HTML/PDF variable</span></td>
+              <td><span class="badge warn">Pendiente de relevar</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Hallazgos concretos del discovery</h3>
+      <ul class="plain">
+        <li><strong>COMPR.AR no es OCDS</strong> — es un CSV propio de la ONC con nombres de campo en español. Dos tablas centrales unidas por <span style="font-family:var(--mono);font-size:13px;">Numero_Proceso</span>: <em>Convocatorias.csv</em> (55 MB — organismo, tipo de procedimiento, fechas, objeto, monto estimado) y <em>Adjudicaciones.csv</em> (88 MB — CUIT y nombre del proveedor, monto, moneda, fecha de adjudicación). Suma <em>SiPRO.csv</em> (12 MB) como padrón de proveedores. Se descargan directo del CDN <span style="font-family:var(--mono);font-size:13px;">infra.datos.gob.ar</span>, sin necesidad de pasar por el buscador del sitio.</li>
+        <li><strong>CONTRAT.AR parece abandonado</strong> — sus archivos (Procedimientos, Contratos, Obras) no se actualizan desde 2023 y pesan apenas unos cientos de KB. Antes de invertir tiempo ahí, confirmar si la obra pública nacional migró a otro sistema de publicación.</li>
+        <li><strong>BAC es mejor de lo esperado</strong> — no solo es OCDS 1.1 real (con extensiones <em>techniques</em>, <em>competitive</em> y <em>contract_signatories</em>), sino que su licencia <strong>CC-BY-2.5-AR</strong> permite explícitamente reuso comercial con atribución. Tiene un JSON del año corriente (84 MB, manejable) y CSVs históricos desde 2011 (~600 MB cada uno, requieren procesamiento en streaming).</li>
+        <li><strong>PBAC tiene un botón de exportar a Excel</strong>, pero es un <span style="font-family:var(--mono);font-size:13px;">__doPostBack</span> de ASP.NET WebForms (no una URL descargable directa) — hace falta Playwright o replicar el ciclo VIEWSTATE con requests. Hoy mismo lista 412 licitaciones con apertura próxima, paginadas de a 10.</li>
+        <li><strong>datos.gob.ar (el sitio web) estuvo intermitentemente caído</strong> durante esta prueba (errores 502) pero el CDN de archivos y la API de búsqueda respondieron bien la mayor parte del tiempo — la ingesta debe apuntar directo a las URLs de <span style="font-family:var(--mono);font-size:13px;">infra.datos.gob.ar</span>, no al sitio de navegación, y tolerar caídas puntuales con reintentos.</li>
+      </ul>
+      <p style="margin-top:14px;color:var(--text-muted);font-size:14px;">Para los municipios de la Provincia conviene arrancar solo con aquellos donde tu empresa efectivamente licita hoy, en vez de intentar cubrir los ~135 desde el inicio.</p>
+    </section>
+
+    <section id="arquitectura">
+      <p class="sec-num">04</p>
+      <h2>Arquitectura propuesta</h2>
+      <p class="lead">Un único pipeline de ingesta alimentado por conectores específicos por fuente, que convergen en un esquema interno común antes de llegar al buscador y las alertas.</p>
+      <div class="diagram">
+        <svg viewBox="0 0 980 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagrama de arquitectura: fuentes oficiales hacia conectores, normalización, base de datos, y de ahí a buscador, motor de alertas y app web">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--text-muted)"></path>
+            </marker>
+          </defs>
+
+          <!-- Fuentes -->
+          <g>
+            <rect x="10" y="20" width="150" height="46" rx="8" fill="var(--surface-2)" stroke="var(--border)"></rect>
+            <text x="85" y="40" text-anchor="middle" font-family="var(--sans)" font-size="12" font-weight="700" fill="var(--text)">COMPR.AR /</text>
+            <text x="85" y="55" text-anchor="middle" font-family="var(--sans)" font-size="12" font-weight="700" fill="var(--text)">CONTRAT.AR</text>
+
+            <rect x="10" y="76" width="150" height="36" rx="8" fill="var(--surface-2)" stroke="var(--border)"></rect>
+            <text x="85" y="98" text-anchor="middle" font-family="var(--sans)" font-size="12" font-weight="700" fill="var(--text)">BAC (CABA)</text>
+
+            <rect x="10" y="122" width="150" height="36" rx="8" fill="var(--surface-2)" stroke="var(--border)"></rect>
+            <text x="85" y="144" text-anchor="middle" font-family="var(--sans)" font-size="12" font-weight="700" fill="var(--text)">PBAC</text>
+
+            <rect x="10" y="168" width="150" height="46" rx="8" fill="var(--surface-2)" stroke="var(--border)"></rect>
+            <text x="85" y="188" text-anchor="middle" font-family="var(--sans)" font-size="12" font-weight="700" fill="var(--text)">Boletín Oficial /</text>
+            <text x="85" y="203" text-anchor="middle" font-family="var(--sans)" font-size="12" font-weight="700" fill="var(--text)">municipios PBA</text>
+          </g>
+          <text x="85" y="242" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--text-muted)">FUENTES OFICIALES</text>
+
+          <!-- arrows to conectores -->
+          <line x1="160" y1="43" x2="228" y2="100" stroke="var(--text-muted)" stroke-width="1.3" marker-end="url(#arrow)"></line>
+          <line x1="160" y1="94" x2="228" y2="105" stroke="var(--text-muted)" stroke-width="1.3" marker-end="url(#arrow)"></line>
+          <line x1="160" y1="140" x2="228" y2="115" stroke="var(--text-muted)" stroke-width="1.3" marker-end="url(#arrow)"></line>
+          <line x1="160" y1="191" x2="228" y2="122" stroke="var(--text-muted)" stroke-width="1.3" marker-end="url(#arrow)"></line>
+
+          <!-- Conectores -->
+          <rect x="232" y="70" width="150" height="60" rx="8" fill="var(--accent-soft)" stroke="var(--accent)"></rect>
+          <text x="307" y="94" text-anchor="middle" font-family="var(--sans)" font-size="12" font-weight="700" fill="var(--accent-strong)">Conectores</text>
+          <text x="307" y="110" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--accent-strong)">API OCDS + scrapers</text>
+          <text x="307" y="152" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--text-muted)">INGESTA</text>
+
+          <line x1="382" y1="100" x2="450" y2="100" stroke="var(--text-muted)" stroke-width="1.3" marker-end="url(#arrow)"></line>
+
+          <!-- Normalización -->
+          <rect x="454" y="70" width="150" height="60" rx="8" fill="var(--surface-2)" stroke="var(--border)"></rect>
+          <text x="529" y="94" text-anchor="middle" font-family="var(--sans)" font-size="12" font-weight="700" fill="var(--text)">Normalización</text>
+          <text x="529" y="110" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--text-muted)">esquema interno OCDS</text>
+          <text x="529" y="152" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--text-muted)">ETL</text>
+
+          <line x1="604" y1="100" x2="672" y2="100" stroke="var(--text-muted)" stroke-width="1.3" marker-end="url(#arrow)"></line>
+
+          <!-- DB -->
+          <rect x="676" y="70" width="120" height="60" rx="8" fill="var(--gold-soft)" stroke="var(--gold)"></rect>
+          <text x="736" y="94" text-anchor="middle" font-family="var(--sans)" font-size="12" font-weight="700" fill="var(--text)">Base de</text>
+          <text x="736" y="110" text-anchor="middle" font-family="var(--sans)" font-size="12" font-weight="700" fill="var(--text)">datos</text>
+          <text x="736" y="152" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--text-muted)">PostgreSQL</text>
+
+          <!-- branch arrows -->
+          <line x1="796" y1="90" x2="850" y2="45" stroke="var(--text-muted)" stroke-width="1.3" marker-end="url(#arrow)"></line>
+          <line x1="796" y1="110" x2="850" y2="155" stroke="var(--text-muted)" stroke-width="1.3" marker-end="url(#arrow)"></line>
+
+          <!-- Buscador -->
+          <rect x="854" y="16" width="116" height="46" rx="8" fill="var(--surface-2)" stroke="var(--border)"></rect>
+          <text x="912" y="44" text-anchor="middle" font-family="var(--sans)" font-size="12" font-weight="700" fill="var(--text)">Buscador</text>
+
+          <!-- Alertas -->
+          <rect x="854" y="130" width="116" height="46" rx="8" fill="var(--surface-2)" stroke="var(--border)"></rect>
+          <text x="912" y="152" text-anchor="middle" font-family="var(--sans)" font-size="11.5" font-weight="700" fill="var(--text)">Motor de</text>
+          <text x="912" y="166" text-anchor="middle" font-family="var(--sans)" font-size="11.5" font-weight="700" fill="var(--text)">alertas</text>
+
+          <line x1="912" y1="62" x2="912" y2="82" stroke="var(--text-muted)" stroke-width="1.3"></line>
+          <line x1="912" y1="130" x2="912" y2="112" stroke="var(--text-muted)" stroke-width="1.3"></line>
+          <rect x="854" y="82" width="116" height="30" rx="8" fill="var(--accent-soft)" stroke="var(--accent)"></rect>
+          <text x="912" y="101" text-anchor="middle" font-family="var(--sans)" font-size="11.5" font-weight="700" fill="var(--accent-strong)">App web</text>
+
+          <text x="912" y="205" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--text-muted)">USO DIARIO</text>
+        </svg>
+      </div>
+
+      <h3>Stack sugerido (solo dev + Claude Code)</h3>
+      <ul class="plain">
+        <li><strong>Conectores/ETL:</strong> Python — hay librerías OCDS ya maduras (<span style="font-family:var(--mono);font-size:13px;">ocdskit</span>) para Nación/BAC, y facilita scraping (requests/BeautifulSoup/Playwright) para PBAC y municipios.</li>
+        <li><strong>Base de datos:</strong> PostgreSQL — el modelo de OCDS (release / tender / buyer / items / awards) mapea bien a tablas relacionales y permite búsqueda full-text nativa para el MVP sin sumar un motor de búsqueda aparte.</li>
+        <li><strong>App web:</strong> un framework full-stack simple (Next.js o Django) alcanza para buscador + alertas; no hace falta microservicios para este volumen de datos.</li>
+        <li><strong>Programación de tareas:</strong> cron/worker simple (o un scheduler tipo APScheduler) para correr cada conector con la frecuencia que public cada fuente sus novedades.</li>
+      </ul>
+    </section>
+
+    <section id="roadmap">
+      <p class="sec-num">05</p>
+      <h2>Roadmap por fases</h2>
+      <p class="lead">Estimaciones para desarrollo part-time en solitario; ajustables una vez hecho el discovery técnico de la Fase 0.</p>
+      <div class="phases">
+        <div class="phase">
+          <div class="phase-head"><span class="phase-name">Fase 0 — Discovery técnico</span><span class="phase-time">1–2 semanas · en curso</span></div>
+          <p>Confirmar en la práctica lo que hoy es teórico.</p>
+          <ul class="plain">
+            <li><span class="badge ok">Hecho</span> Bajar y explorar COMPR.AR y BAC: estructura, volumen y frecuencia de actualización reales (ver sección 03).</li>
+            <li><span class="badge ok">Hecho</span> Descubrir que CONTRAT.AR está inactivo desde 2023 — hay que decidir si se excluye del MVP.</li>
+            <li><span class="badge warn">Parcial</span> PBAC: confirmado el formato (ASP.NET, export Excel vía postback) — falta decidir Playwright vs. réplica de VIEWSTATE.</li>
+            <li><span class="badge risk">Pendiente</span> Elegir 3–5 municipios de la Provincia donde la empresa licita hoy y relevar sus fuentes.</li>
+            <li><span class="badge risk">Pendiente</span> Diseñar el esquema de datos interno — ahora más claro: BAC aporta un esquema OCDS limpio, COMPR.AR necesita su propio mapeo de campos en español.</li>
+          </ul>
+        </div>
+        <div class="phase">
+          <div class="phase-head"><span class="phase-name">Fase 1 — MVP Nación + CABA</span><span class="phase-time">3–5 semanas</span></div>
+          <p>Primer circuito completo, de punta a punta, con las dos fuentes más fáciles.</p>
+          <ul class="plain">
+            <li>Conectores OCDS para COMPR.AR/CONTRAT.AR y BAC, con normalización al esquema interno.</li>
+            <li>Buscador con filtros básicos: rubro, organismo, monto, palabra clave, jurisdicción.</li>
+            <li>Sin IA todavía — el objetivo es tener datos confiables y buscables.</li>
+          </ul>
+        </div>
+        <div class="phase">
+          <div class="phase-head"><span class="phase-name">Fase 2 — Sumar PBA y municipios prioritarios</span><span class="phase-time">3–4 semanas</span></div>
+          <p>La parte sin API: scraping a medida y manejo de datos sucios.</p>
+          <ul class="plain">
+            <li>Scraper de PBAC y de los municipios elegidos en la Fase 0.</li>
+            <li>Deduplicación entre fuentes y normalización de nombres de organismos/rubros.</li>
+          </ul>
+        </div>
+        <div class="phase">
+          <div class="phase-head"><span class="phase-name">Fase 3 — Alertas y seguimiento</span><span class="phase-time">2 semanas</span></div>
+          <p>Lo que reemplaza el día a día de Falcontenders.</p>
+          <ul class="plain">
+            <li>Búsquedas guardadas con notificación por email/WhatsApp cuando aparece algo nuevo.</li>
+            <li>Tablero de licitaciones seguidas: estado, responsable, vencimiento.</li>
+          </ul>
+        </div>
+        <div class="phase">
+          <div class="phase-head"><span class="phase-name">Fase 4 — IA sobre pliegos</span><span class="phase-time">3–4 semanas</span></div>
+          <p>El diferencial de Tenderyou/Licit.ar, para cuando la base de datos ya sea confiable.</p>
+          <ul class="plain">
+            <li>Extracción de texto de PDFs de pliegos.</li>
+            <li>Resumen con LLM de criterios de adjudicación, requisitos de solvencia y plazos clave.</li>
+            <li>Checklist automático de documentación a presentar.</li>
+          </ul>
+        </div>
+        <div class="phase">
+          <div class="phase-head"><span class="phase-name">Fase 5 — Evaluar comercialización</span><span class="phase-time">condicional</span></div>
+          <p>Solo si el uso interno valida el producto.</p>
+          <ul class="plain">
+            <li>Multi-tenant real, roles de equipo, facturación.</li>
+            <li>Revisión legal formal de cada fuente antes de vender acceso a terceros.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="riesgos">
+      <p class="sec-num">06</p>
+      <h2>Riesgos y consideraciones legales</h2>
+      <div class="callout risk">
+        <span class="cal-label">A tener en cuenta</span>
+        <p>PBAC publica un aviso legal que prohíbe copiar, transmitir o reutilizar su contenido con fines comerciales. Para <strong>uso interno</strong> es la misma zona gris en la que ya operan Falcontenders y Licit.ar al indexar esta fuente; para <strong>vender el producto a terceros</strong> (Fase 5) conviene una revisión legal puntual de los términos de cada jurisdicción antes de escalar.</p>
+      </div>
+      <ul class="plain">
+        <li><strong>No scrapear neo.falcontenders.com:</strong> es el producto de otra empresa, no una fuente pública primaria — toda la ingesta debe apuntar a los portales oficiales (COMPR.AR, BAC, PBAC, boletines/municipios), nunca al competidor.</li>
+        <li><strong>Fragilidad técnica:</strong> las fuentes sin API (PBAC, municipios) rompen con cada rediseño de sitio — los scrapers necesitan monitoreo de fallas, no solo ejecución programada.</li>
+        <li><strong>Calidad de datos:</strong> mismos organismos con nombres distintos entre fuentes, posibles duplicados entre boletín y portal propio de un municipio — la normalización merece tiempo real en la Fase 2, no un parche al final.</li>
+        <li><strong>Alcance ambicioso de más:</strong> Licit.ar tardó en llegar a 409 fuentes; el MVP acotado a 4 fuentes ya cubre la mayor parte del uso real de la empresa — expandir jurisdicciones es trabajo para después de validar el circuito completo.</li>
+      </ul>
+    </section>
+
+    <section id="siguientes-pasos">
+      <p class="sec-num">07</p>
+      <h2>Primer sprint</h2>
+      <p class="lead">Cinco pasos concretos para arrancar esta semana.</p>
+      <ol class="steps">
+        <li><b>Confirmar el dataset OCDS de COMPR.AR/CONTRAT.AR en datos.gob.ar</b><span>Descargar una muestra real, revisar campos disponibles y frecuencia de actualización.</span></li>
+        <li><b>Confirmar el dataset OCDS de BAC en data.buenosaires.gob.ar</b><span>Mismo ejercicio que el paso anterior, para tener las dos fuentes con API listas.</span></li>
+        <li><b>Relevar PBAC a mano</b><span>Navegar el portal como si fueras a licitar: qué datos hay por aviso, si hay export o solo HTML.</span></li>
+        <li><b>Listar 3–5 municipios prioritarios</b><span>Los que la empresa efectivamente sigue hoy, con su fuente identificada (sitio propio o solo Boletín Oficial).</span></li>
+        <li><b>Prueba de concepto end-to-end con COMPR.AR</b><span>Ingesta → normalización → guardado en base → listado simple en pantalla. Valida el pipeline completo antes de sumar más fuentes.</span></li>
+      </ol>
+    </section>
+
+    <footer>
+      Preparado a partir de la exploración de tenderyou.com, falcontenders.com y fuentes de datos abiertos de contratación pública argentina · Septiembre 2026
+    </footer>
+  </main>
+</div>
+
+<script>
+(function(){
+  var links = Array.prototype.slice.call(document.querySelectorAll('#tocnav a'));
+  var sections = links.map(function(l){ return document.querySelector(l.getAttribute('href')); });
+  function onScroll(){
+    var pos = window.scrollY + 120;
+    var current = sections[0];
+    for (var i=0;i<sections.length;i++){
+      if (sections[i] && sections[i].offsetTop <= pos) current = sections[i];
+    }
+    links.forEach(function(l){ l.classList.remove('active'); });
+    var idx = sections.indexOf(current);
+    if (idx >= 0 && links[idx]) links[idx].classList.add('active');
+  }
+  document.addEventListener('scroll', onScroll, { passive:true });
+  onScroll();
+})();
+</script>
