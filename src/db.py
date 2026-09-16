@@ -125,6 +125,42 @@ def upsert_with_items(conn, rows):
     return n_licitaciones, n_items
 
 
+REFRESH_ESTADO_SQL = """
+UPDATE licitaciones SET
+    estado = :estado,
+    fecha_apertura = :fecha_apertura,
+    titulo = :titulo,
+    organismo = :organismo,
+    tipo_procedimiento = :tipo_procedimiento,
+    actualizado_en = CURRENT_TIMESTAMP
+WHERE fuente = :fuente AND numero_proceso = :numero_proceso
+"""
+
+
+def upsert_live_estado(conn, rows):
+    """Para conectores 'en vivo' que solo traen estado/fecha/titulo (no monto
+    ni descripcion, p.ej. comprar_ar_live): si la licitacion ya existe (por
+    la carga masiva del CSV) actualiza solo esos campos sin pisar monto/
+    descripcion; si no existe, la inserta con lo que hay disponible.
+    Devuelve (n_actualizadas, n_insertadas)."""
+    n_update = 0
+    n_insert = 0
+    for row in rows:
+        cur = conn.execute(REFRESH_ESTADO_SQL, row)
+        if cur.rowcount > 0:
+            n_update += 1
+        else:
+            conn.execute(UPSERT_SQL, {**{k: row.get(k) for k in (
+                "fuente", "numero_proceso", "titulo", "descripcion", "organismo",
+                "jurisdiccion", "tipo_procedimiento", "fecha_publicacion",
+                "fecha_apertura", "monto_estimado", "moneda", "estado",
+                "proveedor_adjudicado", "monto_adjudicado", "url",
+            )}})
+            n_insert += 1
+    conn.commit()
+    return n_update, n_insert
+
+
 def set_items(conn, fuente, numero_proceso, items):
     """Reemplaza los items de una licitacion ya existente (identificada por
     fuente+numero_proceso), sin tocar el resto de sus campos. Devuelve

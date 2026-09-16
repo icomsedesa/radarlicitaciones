@@ -101,7 +101,9 @@ def fetch(limit: int | None = None) -> list[dict]:
                 "fecha_apertura": _parse_fecha(r.get("Fecha_de_Apertura")),
                 "monto_estimado": _parse_monto(r.get("Monto_Estimado")),
                 "moneda": r.get("moneda") if pd.notna(r.get("moneda")) else "Peso Argentino",
-                "estado": r.get("Etapa"),
+                # "Etapa" (Unica/Multiple) NO es un estado real -- el CSV masivo no trae
+                # estado de apertura confiable, por eso queda null hasta refresh_live.
+                "estado": None,
                 "proveedor_adjudicado": r.get("proveedores") if pd.notna(r.get("proveedores")) else None,
                 "monto_adjudicado": r.get("monto_adjudicado") if pd.notna(r.get("monto_adjudicado")) else None,
                 "url": f"https://comprar.gob.ar/BuscarAvanzado.aspx?qs={r.get('Numero_Proceso')}",

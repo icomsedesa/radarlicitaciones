@@ -13,6 +13,7 @@ def index():
     q = request.args.get("q", "").strip()
     fuente = request.args.get("fuente", "").strip()
     solo_con_renglones = request.args.get("renglones", "") == "1"
+    solo_vigentes = request.args.get("vigentes", "") == "1"
 
     conn = db.get_connection()
     where = []
@@ -24,9 +25,12 @@ def index():
     if fuente:
         where.append("l.fuente = :fuente")
         params["fuente"] = fuente
+    if solo_vigentes:
+        where.append("l.estado IN ('Publicado', 'active')")
 
     where_sql = f"WHERE {' AND '.join(where)}" if where else ""
     having_sql = "HAVING COUNT(i.id) > 0" if solo_con_renglones else ""
+    order_sql = "l.fecha_apertura ASC" if solo_vigentes else "l.fecha_apertura DESC"
 
     rows = conn.execute(
         f"""
@@ -36,7 +40,7 @@ def index():
         {where_sql}
         GROUP BY l.id
         {having_sql}
-        ORDER BY l.fecha_apertura DESC
+        ORDER BY {order_sql}
         LIMIT {PAGE_SIZE}
         """,
         params,

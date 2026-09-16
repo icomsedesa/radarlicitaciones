@@ -1,8 +1,11 @@
 """Completa los renglones (items) de las licitaciones COMPR.AR vigentes.
 
-Solo tiene sentido para procesos donde todavia se puede aplicar (fecha de
-apertura futura) -- traer renglones del historico completo no aporta y
-serian decenas de miles de páginas a scrapear. Correr despues de `ingest`.
+Solo tiene sentido para procesos donde todavia se puede aplicar. Usa el
+campo `estado` como criterio principal -- confiable solo despues de correr
+`python -m src.refresh_live`, que lo trae del buscador en vivo (el CSV
+masivo no es confiable para esto: ver README). Si todavia no se corrio
+refresh_live, cae a un criterio por fecha con ventana acotada (el CSV
+masivo tiene años placeholder como "2099"/"3015" en fechas de apertura).
 
 Uso:
     python -m src.backfill_items                 # todas las vigentes (hasta --max)
@@ -14,10 +17,7 @@ from datetime import datetime, timedelta
 from src import db
 from src.connectors import comprar_ar_items
 
-# El CSV masivo tiene fechas de apertura con errores de carga del propio
-# organismo (ej. anios "3015" o "2099" usados como placeholder) -- se acota
-# la ventana a algo realista para no confundirlas con licitaciones vigentes.
-HORIZONTE_DIAS = 180
+HORIZONTE_DIAS = 180  # fallback si todavia no se corrio refresh_live
 
 
 def run(max_procesos=200):
@@ -28,7 +28,10 @@ def run(max_procesos=200):
     rows = conn.execute(
         """
         SELECT numero_proceso FROM licitaciones
-        WHERE fuente='comprar_ar' AND fecha_apertura >= ? AND fecha_apertura <= ?
+        WHERE fuente='comprar_ar' AND (
+            estado = 'Publicado'
+            OR (fecha_apertura >= ? AND fecha_apertura <= ?)
+        )
         ORDER BY fecha_apertura ASC
         LIMIT ?
         """,

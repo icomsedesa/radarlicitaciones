@@ -37,6 +37,10 @@
   a.titulo:hover{color:var(--accent-strong);text-decoration:underline;}
   .badge-renglones{display:inline-block;margin-top:3px;font-family:ui-monospace,monospace;font-size:10.5px;padding:1px 6px;border-radius:4px;background:var(--gold-soft);color:var(--gold);font-weight:600;}
   label.check{display:flex;align-items:center;gap:6px;font-size:13.5px;color:var(--text-muted);white-space:nowrap;}
+  .estado{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;}
+  .estado::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--text-muted);display:inline-block;}
+  .estado.vigente{color:var(--accent-strong);}
+  .estado.vigente::before{background:var(--accent);}
 </style>
 </head>
 <body>
@@ -64,6 +68,10 @@
       <input type="checkbox" name="renglones" value="1" {% if solo_con_renglones %}checked{% endif %}>
       Solo con renglones cargados
     </label>
+    <label class="check">
+      <input type="checkbox" name="vigentes" value="1" {% if solo_vigentes %}checked{% endif %}>
+      Solo vigentes (se puede ofertar hoy)
+    </label>
     <button type="submit">Buscar</button>
   </form>
 
@@ -77,7 +85,7 @@
       <thead>
         <tr>
           <th>Fuente</th><th>N° proceso</th><th>Título</th><th>Organismo</th>
-          <th>Tipo</th><th>Apertura</th><th>Monto est.</th><th>Adjudicado a</th>
+          <th>Tipo</th><th>Apertura</th><th>Estado</th><th>Monto est.</th><th>Adjudicado a</th>
         </tr>
       </thead>
       <tbody>
@@ -92,6 +100,7 @@
           <td>{{ r.organismo or '—' }}</td>
           <td>{{ r.tipo_procedimiento or '—' }}</td>
           <td>{{ r.fecha_apertura[:10] if r.fecha_apertura else '—' }}</td>
+          <td>{% if r.estado %}<span class="estado {{ 'vigente' if r.estado in ('Publicado','active') else '' }}">{{ r.estado }}</span>{% else %}—{% endif %}</td>
           <td class="monto">{% if r.monto_estimado %}{{ '{:,.0f}'.format(r.monto_estimado) }} {{ r.moneda or '' }}{% else %}—{% endif %}</td>
           <td>{{ r.proveedor_adjudicado or '—' }}</td>
         </tr>
