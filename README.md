@@ -15,8 +15,26 @@ PoC del buscador propio de licitaciones públicas argentinas (alternativa a Falc
 | Muni Vicente López | GBA norte | Tabla real, renderizada por JS (Playwright) | No |
 | Muni San Andrés de Giles | Interior bonaerense | HTML propio, página que se sobrescribe | No |
 | Muni Chivilcoy | Interior bonaerense | HTML propio, una licitación a la vez | No |
+| Muni Quilmes | GBA sur | HTML propio server-side, histórico completo 2000-2026 (sin nada desde fines de 2024) | No |
+| Muni Morón | GBA oeste | Portal RAFAM, tabla HTML server-side, histórico 2021-2026 | No |
+| Muni Tres de Febrero | GBA oeste | HTML propio (`<h3>`+`<p>` regular), por año | No |
+| Muni Florencio Varela | GBA sur | HTML simple → PDF con texto real, solo lo vigente (4 licitaciones) | No |
+| Muni Escobar | GBA norte | WordPress, posts individuales con permalink predecible | No |
 
-Investigados y **sin fuente digital viable hoy**: Tigre, Malvinas Argentinas, Esteban Echeverría, Capitán Sarmiento (ver hallazgos abajo). Pendiente: San Isidro — tiene los mejores datos individuales de los 11, pero el índice de licitaciones vigentes del sitio da 404 y no encontré una forma confiable de descubrir qué licitaciones 2025/2026 existen (ni iterando la URL numérica en ninguno de los dos formatos de slug que usa el sitio, ni vía el portal de Boletín Oficial, que bloquea browsers headless aunque responde a `curl` simple).
+Investigados y **sin fuente digital viable hoy**: Tigre, Malvinas Argentinas, Esteban Echeverría, Capitán Sarmiento, Ezeiza, José C. Paz, y (con reservas — sitio muy inestable) Hurlingham; Almirante Brown también se recomienda descartar (boletines 100% escaneados, sin licitaciones estructuradas). Ver hallazgos abajo.
+
+**Pendientes de una próxima pasada** (investigados, con datos reales confirmados, pero requieren más trabajo de parseo/acceso antes de conectar):
+- **San Isidro** — mejores datos individuales de todos los investigados, pero el índice de licitaciones vigentes del sitio da 404 y no hay forma confiable de descubrir licitaciones 2025/2026 (ni iterando URLs, ni vía el Boletín Oficial, que bloquea browsers headless).
+- **San Fernando** — Boletín Municipal semanal en PDF con texto real y expediente/fecha de apertura, pero con redacción menos regular que La Matanza (varias variantes de frase para "llamado", "segundo llamado", años escritos con punto como en "2.026") — necesita un regex más elaborado.
+- **Lanús** — listado HTML simple con fecha directo en la página (el más prometedor de los "fáciles" sin visitar), pero el sitio devolvió error 525 (falla de TLS en el origen, vía Cloudflare) en el momento de conectarlo — probable caída temporal, reintentar.
+- **Moreno** — la fuente más rica de todas: una API JSON abierta (`moreno.gob.ar/services/noticias/list.php`) con noticias de cada licitación en texto corrido muy regular (expediente, fecha de apertura, presupuesto). Vale la pena priorizarlo.
+- **Avellaneda** (mda.gob.ar) — 862 licitaciones históricas en una sola página HTML, con PDF "Nota" por cada una con campos etiquetados (EXPEDIENTE, FECHA DE APERTURA).
+- **Ituzaingó** — Boletín Oficial mensual en PDF, texto completo (no extractado) con buen patrón regex, poco ruido relativo (~17 menciones de "licitación" por boletín de 300K caracteres).
+- **Berazategui** — el listado se carga por AJAX (WordPress/WPBakery, necesita nonce), pero el detalle vive en PDFs con patrón muy regular (expediente, apertura, presupuesto).
+- **Lomas de Zamora** — Boletín Oficial vía AJAX reproducible sin browser, PDFs con texto real, pero la fecha de apertura casi siempre figura como "a determinar" en el decreto de llamado.
+- **General San Martín** — usa SIBOM pero con mucho ruido (125 decretos/boletín, casi todos de personal) y el detalle del llamado vive en un anexo PDF aparte.
+- **Pilar** — usa SIBOM (city_id=35) pero las últimas ~40 ediciones no mencionan ninguna licitación (posible migración a otro sistema no identificado todavía).
+- **General Rodríguez** y **Merlo** — datos reales confirmados (PDFs con texto seleccionable y patrón regular), pero sin índice HTML estructurado (Gral. Rodríguez) o con PDFs de boletín corruptos/gigantes que fallan al extraer texto (Merlo, 56-95MB por mes) — necesitan más trabajo antes de ser viables.
 
 ## Buscador web
 
@@ -74,4 +92,4 @@ Abre http://localhost:5000
 
 ## Estado
 
-Prueba de concepto (Fase 1-2 del plan): valida que la ingesta, normalización y búsqueda funcionan de punta a punta con datos reales, ya con 6 municipios sumados (San Miguel, La Matanza, Campana, Vicente López, San Andrés de Giles, Chivilcoy). Todavía no tiene: alertas, deduplicación entre fuentes, ni San Isidro (índice del sitio roto, pendiente de otra estrategia de descubrimiento). Tigre, Malvinas Argentinas, Esteban Echeverría y Capitán Sarmiento no tienen fuente digital viable hoy.
+Prueba de concepto (Fase 1-2 del plan): valida que la ingesta, normalización y búsqueda funcionan de punta a punta con datos reales, ya con **11 municipios sumados** (San Miguel, La Matanza, Campana, Vicente López, San Andrés de Giles, Chivilcoy, Quilmes, Morón, Tres de Febrero, Florencio Varela, Escobar). Todavía no tiene: alertas, deduplicación entre fuentes, ni los ~10 municipios investigados y pendientes de una próxima pasada (San Isidro, San Fernando, Lanús, Moreno, Avellaneda, Ituzaingó, Berazategui, Lomas de Zamora, General San Martín — ver detalle arriba). De los ~24 municipios del Gran Buenos Aires, quedan sin explorar todavía: Hurlingham (dudoso, sitio inestable) y los que se descartaron por falta de fuente digital (Tigre, Malvinas Argentinas, Esteban Echeverría, Ezeiza, José C. Paz, Almirante Brown).

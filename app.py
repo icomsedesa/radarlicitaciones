@@ -20,6 +20,30 @@ FUENTES = [
     ("muni_vicente_lopez", "Vicente López"),
     ("muni_san_andres_giles", "San Andrés de Giles"),
     ("muni_chivilcoy", "Chivilcoy"),
+    ("muni_quilmes", "Quilmes"),
+    ("muni_moron", "Morón"),
+    ("muni_tres_de_febrero", "Tres de Febrero"),
+    ("muni_florencio_varela", "Florencio Varela"),
+    ("muni_escobar", "Escobar"),
+]
+
+# (fuente, nombre, descripcion) para el modal "Jurisdicciones adheridas" --
+# un solo lugar para mantener al sumar fuentes nuevas.
+JURISDICCIONES = [
+    ("comprar_ar", "COMPR.AR", "Nación — bienes y servicios (ONC)"),
+    ("bac", "BAC", "Ciudad Autónoma de Buenos Aires"),
+    ("pbac", "PBAC", "Provincia de Buenos Aires"),
+    ("muni_san_miguel", "San Miguel", "Municipio (GBA norte)"),
+    ("muni_la_matanza", "La Matanza", "Municipio (GBA oeste)"),
+    ("muni_campana", "Campana", "Municipio (GBA norte, vía SIBOM)"),
+    ("muni_vicente_lopez", "Vicente López", "Municipio (GBA norte)"),
+    ("muni_san_andres_giles", "San Andrés de Giles", "Municipio (interior bonaerense)"),
+    ("muni_chivilcoy", "Chivilcoy", "Municipio (interior bonaerense)"),
+    ("muni_quilmes", "Quilmes", "Municipio (GBA sur)"),
+    ("muni_moron", "Morón", "Municipio (GBA oeste)"),
+    ("muni_tres_de_febrero", "Tres de Febrero", "Municipio (GBA oeste)"),
+    ("muni_florencio_varela", "Florencio Varela", "Municipio (GBA sur)"),
+    ("muni_escobar", "Escobar", "Municipio (GBA norte)"),
 ]
 
 URGENCIA_CASE = """
@@ -170,6 +194,7 @@ def _buscar():
         apertura_desde=apertura_desde,
         apertura_hasta=apertura_hasta,
         fuentes=FUENTES,
+        jurisdicciones=JURISDICCIONES,
         por_fuente=por_fuente,
         shown=len(rows),
     )

@@ -130,7 +130,7 @@
     <img src="{{ url_for('static', filename='logo-reverse.png') }}" alt="IcomSalud" style="height:34px;background:transparent;">
     <div>
       <h1>Radar de Licitaciones</h1>
-      <button type="button" class="jur-link" id="abrir-jurisdicciones">Jurisdicciones adheridas (9) →</button>
+      <button type="button" class="jur-link" id="abrir-jurisdicciones">Jurisdicciones adheridas ({{ jurisdicciones|length }}) →</button>
     </div>
   </div>
 </div>
@@ -197,78 +197,16 @@
     <h3>Jurisdicciones adheridas</h3>
     <p class="sub">Fuentes de datos públicas conectadas al radar. Se van sumando a medida que se incorporan.</p>
 
+    {% for slug, nombre, desc in jurisdicciones %}
     <div class="jur-item">
-      <span class="jur-dot" style="background:var(--src-comprar)"></span>
+      <span class="jur-dot" style="background:var(--src-{{ fuente_clase(slug) }})"></span>
       <div>
-        <div class="name">COMPR.AR</div>
-        <div class="desc">Nación — bienes y servicios (ONC)</div>
+        <div class="name">{{ nombre }}</div>
+        <div class="desc">{{ desc }}</div>
       </div>
-      <span class="count">{{ '{:,}'.format(por_fuente.get('comprar_ar', 0)) }}</span>
+      <span class="count">{{ '{:,}'.format(por_fuente.get(slug, 0)) }}</span>
     </div>
-    <div class="jur-item">
-      <span class="jur-dot" style="background:var(--src-bac)"></span>
-      <div>
-        <div class="name">BAC</div>
-        <div class="desc">Ciudad Autónoma de Buenos Aires</div>
-      </div>
-      <span class="count">{{ '{:,}'.format(por_fuente.get('bac', 0)) }}</span>
-    </div>
-    <div class="jur-item">
-      <span class="jur-dot" style="background:var(--src-pbac)"></span>
-      <div>
-        <div class="name">PBAC</div>
-        <div class="desc">Provincia de Buenos Aires</div>
-      </div>
-      <span class="count">{{ '{:,}'.format(por_fuente.get('pbac', 0)) }}</span>
-    </div>
-    <div class="jur-item">
-      <span class="jur-dot" style="background:var(--src-muni)"></span>
-      <div>
-        <div class="name">San Miguel</div>
-        <div class="desc">Municipio (GBA norte)</div>
-      </div>
-      <span class="count">{{ '{:,}'.format(por_fuente.get('muni_san_miguel', 0)) }}</span>
-    </div>
-    <div class="jur-item">
-      <span class="jur-dot" style="background:var(--src-muni)"></span>
-      <div>
-        <div class="name">La Matanza</div>
-        <div class="desc">Municipio (GBA oeste)</div>
-      </div>
-      <span class="count">{{ '{:,}'.format(por_fuente.get('muni_la_matanza', 0)) }}</span>
-    </div>
-    <div class="jur-item">
-      <span class="jur-dot" style="background:var(--src-muni)"></span>
-      <div>
-        <div class="name">Campana</div>
-        <div class="desc">Municipio (vía SIBOM)</div>
-      </div>
-      <span class="count">{{ '{:,}'.format(por_fuente.get('muni_campana', 0)) }}</span>
-    </div>
-    <div class="jur-item">
-      <span class="jur-dot" style="background:var(--src-muni)"></span>
-      <div>
-        <div class="name">Vicente López</div>
-        <div class="desc">Municipio (GBA norte)</div>
-      </div>
-      <span class="count">{{ '{:,}'.format(por_fuente.get('muni_vicente_lopez', 0)) }}</span>
-    </div>
-    <div class="jur-item">
-      <span class="jur-dot" style="background:var(--src-muni)"></span>
-      <div>
-        <div class="name">San Andrés de Giles</div>
-        <div class="desc">Municipio (interior bonaerense)</div>
-      </div>
-      <span class="count">{{ '{:,}'.format(por_fuente.get('muni_san_andres_giles', 0)) }}</span>
-    </div>
-    <div class="jur-item">
-      <span class="jur-dot" style="background:var(--src-muni)"></span>
-      <div>
-        <div class="name">Chivilcoy</div>
-        <div class="desc">Municipio (interior bonaerense)</div>
-      </div>
-      <span class="count">{{ '{:,}'.format(por_fuente.get('muni_chivilcoy', 0)) }}</span>
-    </div>
+    {% endfor %}
     <div class="jur-item proximo">
       <span class="jur-dot" style="background:var(--sem-grey)"></span>
       <div>
