@@ -25,6 +25,9 @@ FUENTES = [
     ("muni_tres_de_febrero", "Tres de Febrero"),
     ("muni_florencio_varela", "Florencio Varela"),
     ("muni_escobar", "Escobar"),
+    ("muni_moreno", "Moreno"),
+    ("muni_avellaneda", "Avellaneda"),
+    ("muni_ituzaingo", "Ituzaingó"),
 ]
 
 # (fuente, nombre, descripcion) para el modal "Jurisdicciones adheridas" --
@@ -44,6 +47,9 @@ JURISDICCIONES = [
     ("muni_tres_de_febrero", "Tres de Febrero", "Municipio (GBA oeste)"),
     ("muni_florencio_varela", "Florencio Varela", "Municipio (GBA sur)"),
     ("muni_escobar", "Escobar", "Municipio (GBA norte)"),
+    ("muni_moreno", "Moreno", "Municipio (GBA oeste)"),
+    ("muni_avellaneda", "Avellaneda", "Municipio (GBA sur)"),
+    ("muni_ituzaingo", "Ituzaingó", "Municipio (GBA oeste)"),
 ]
 
 URGENCIA_CASE = """

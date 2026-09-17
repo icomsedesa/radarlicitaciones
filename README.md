@@ -20,16 +20,16 @@ PoC del buscador propio de licitaciones públicas argentinas (alternativa a Falc
 | Muni Tres de Febrero | GBA oeste | HTML propio (`<h3>`+`<p>` regular), por año | No |
 | Muni Florencio Varela | GBA sur | HTML simple → PDF con texto real, solo lo vigente (4 licitaciones) | No |
 | Muni Escobar | GBA norte | WordPress, posts individuales con permalink predecible | No |
+| Muni Moreno | GBA oeste | API JSON abierta + páginas de detalle, texto muy regular | No |
+| Muni Avellaneda | GBA sur | HTML propio server-side, histórico completo (862 tarjetas) | No |
+| Muni Ituzaingó | GBA oeste | Boletín Oficial mensual en PDF a dos columnas | No |
 
 Investigados y **sin fuente digital viable hoy**: Tigre, Malvinas Argentinas, Esteban Echeverría, Capitán Sarmiento, Ezeiza, José C. Paz, y (con reservas — sitio muy inestable) Hurlingham; Almirante Brown también se recomienda descartar (boletines 100% escaneados, sin licitaciones estructuradas). Ver hallazgos abajo.
 
 **Pendientes de una próxima pasada** (investigados, con datos reales confirmados, pero requieren más trabajo de parseo/acceso antes de conectar):
 - **San Isidro** — mejores datos individuales de todos los investigados, pero el índice de licitaciones vigentes del sitio da 404 y no hay forma confiable de descubrir licitaciones 2025/2026 (ni iterando URLs, ni vía el Boletín Oficial, que bloquea browsers headless).
 - **San Fernando** — Boletín Municipal semanal en PDF con texto real y expediente/fecha de apertura, pero con redacción menos regular que La Matanza (varias variantes de frase para "llamado", "segundo llamado", años escritos con punto como en "2.026") — necesita un regex más elaborado.
-- **Lanús** — listado HTML simple con fecha directo en la página (el más prometedor de los "fáciles" sin visitar), pero el sitio devolvió error 525 (falla de TLS en el origen, vía Cloudflare) en el momento de conectarlo — probable caída temporal, reintentar.
-- **Moreno** — la fuente más rica de todas: una API JSON abierta (`moreno.gob.ar/services/noticias/list.php`) con noticias de cada licitación en texto corrido muy regular (expediente, fecha de apertura, presupuesto). Vale la pena priorizarlo.
-- **Avellaneda** (mda.gob.ar) — 862 licitaciones históricas en una sola página HTML, con PDF "Nota" por cada una con campos etiquetados (EXPEDIENTE, FECHA DE APERTURA).
-- **Ituzaingó** — Boletín Oficial mensual en PDF, texto completo (no extractado) con buen patrón regex, poco ruido relativo (~17 menciones de "licitación" por boletín de 300K caracteres).
+- **Lanús** — listado HTML simple con fecha directo en la página (el más prometedor de los "fáciles" sin visitar), pero el sitio devolvió error 525 (falla de TLS en el origen, vía Cloudflare) tanto la primera vez como en un reintento posterior — probable caída más larga de lo esperado, reintentar más adelante.
 - **Berazategui** — el listado se carga por AJAX (WordPress/WPBakery, necesita nonce), pero el detalle vive en PDFs con patrón muy regular (expediente, apertura, presupuesto).
 - **Lomas de Zamora** — Boletín Oficial vía AJAX reproducible sin browser, PDFs con texto real, pero la fecha de apertura casi siempre figura como "a determinar" en el decreto de llamado.
 - **General San Martín** — usa SIBOM pero con mucho ruido (125 decretos/boletín, casi todos de personal) y el detalle del llamado vive en un anexo PDF aparte.
@@ -60,6 +60,14 @@ Pendiente conocido: los renglones de COMPR.AR cargados en la primera corrida de 
   - **Vicente López**: la tabla de "Consulta de pliegos" (`ventadepliegos.php`) tiene columnas reales (Contratación, Número, Año, Objeto, Presupuesto, Fecha de Apertura) pero se llena por JS — con `requests` da vacía, hace falta Playwright. Resultado: el mejor de los 6 municipios conectados, 10 licitaciones abiertas con fecha y monto reales.
   - **San Andrés de Giles**: página propia con patrón de texto regular ("Llámese a Licitación Pública Nº X/AAAA... Presupuesto Oficial... Apertura de Ofertas..."), parseable con regex. Al momento de conectarla, la página no se había actualizado desde marzo de 2025 — sigue siendo la única fuente del municipio, solo que desactualizada.
   - **Chivilcoy**: mismo patrón de página única que se sobrescribe con cada llamado nuevo; regex sobre un formato de texto también regular ("APERTURA DE PROPUESTAS: Día... Hora...", "PRESUPUESTO OFICIAL: $...").
+  - **Quilmes**: histórico completo 2000-2026 en HTML server-side (500+ links), con página de detalle propia por licitación — pero nada publicado desde fines de 2024, es una fuente viva y bien hecha que el municipio dejó de alimentar.
+  - **Morón**: portal RAFAM (software de gestión financiera que comparten varios municipios bonaerenses), tabla HTML estática sin paginación. Algunas filas traen el número de licitación vacío en origen (dato faltante real, no bug del scraper) — se descartan.
+  - **Tres de Febrero**: páginas por año con patrón `<h3>`+`<p>` muy regular (objeto, presupuesto, fecha de apertura, expediente, decreto).
+  - **Florencio Varela**: solo lo vigente (4 licitaciones al conectarlo), HTML simple con links directos a PDF con texto real y patrón muy regular.
+  - **Moreno**: la fuente más rica de todas — una **API JSON abierta** (`moreno.gob.ar/services/noticias/list.php?list_last_id=N`, paginable) con una noticia por licitación, y cada noticia trae MOTIVO/EXPEDIENTE/PRESUPUESTO OFICIAL/APERTURA DE OFERTAS en texto muy regular.
+  - **Avellaneda** (mda.gob.ar): 862 tarjetas HTML con todo el histórico en una sola página — el número, objeto y fecha del decreto ya están en el listado mismo, sin necesidad de abrir el PDF "Nota" (que sí tendría fecha de apertura, no parseado todavía).
+  - **Ituzaingó**: Boletín Oficial mensual en PDF, pero **a dos columnas** — `extract_text()` de pdfplumber intercala líneas de ambas columnas y arma frases sin sentido; hubo que recortar cada página por la mitad (`page.crop(...)`) y extraer columna por columna. Rendimiento más bajo que los demás (solo 2 licitaciones en las primeras pruebas, con descripciones a veces demasiado largas por partes irregulares del boletín).
+- **Varios sitios municipales tienen la cadena de certificados SSL incompleta** (falta el certificado intermedio) — funcionan con `curl` (usa el almacén de certificados del SO) pero fallan con `requests` de Python (usa `certifi`, más estricto). Se resuelve con `verify=False` en esos conectores puntuales (Tres de Febrero, Moreno, Avellaneda) — son fuentes públicas de solo lectura, sin dato sensible en juego.
 
 ## Setup
 
@@ -92,4 +100,4 @@ Abre http://localhost:5000
 
 ## Estado
 
-Prueba de concepto (Fase 1-2 del plan): valida que la ingesta, normalización y búsqueda funcionan de punta a punta con datos reales, ya con **11 municipios sumados** (San Miguel, La Matanza, Campana, Vicente López, San Andrés de Giles, Chivilcoy, Quilmes, Morón, Tres de Febrero, Florencio Varela, Escobar). Todavía no tiene: alertas, deduplicación entre fuentes, ni los ~10 municipios investigados y pendientes de una próxima pasada (San Isidro, San Fernando, Lanús, Moreno, Avellaneda, Ituzaingó, Berazategui, Lomas de Zamora, General San Martín — ver detalle arriba). De los ~24 municipios del Gran Buenos Aires, quedan sin explorar todavía: Hurlingham (dudoso, sitio inestable) y los que se descartaron por falta de fuente digital (Tigre, Malvinas Argentinas, Esteban Echeverría, Ezeiza, José C. Paz, Almirante Brown).
+Prueba de concepto (Fase 1-2 del plan): valida que la ingesta, normalización y búsqueda funcionan de punta a punta con datos reales, ya con **14 municipios sumados** (San Miguel, La Matanza, Campana, Vicente López, San Andrés de Giles, Chivilcoy, Quilmes, Morón, Tres de Febrero, Florencio Varela, Escobar, Moreno, Avellaneda, Ituzaingó). Todavía no tiene: alertas, deduplicación entre fuentes, ni los municipios pendientes de una próxima pasada (San Isidro, San Fernando, Lanús, Berazategui, Lomas de Zamora, General San Martín, Pilar, General Rodríguez, Merlo — ver detalle arriba). Quedan además sin explorar Hurlingham (dudoso, sitio inestable) y los descartados por falta de fuente digital (Tigre, Malvinas Argentinas, Esteban Echeverría, Ezeiza, José C. Paz, Almirante Brown).

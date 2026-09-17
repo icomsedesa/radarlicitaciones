@@ -10,8 +10,9 @@ import sys
 from src import db
 from src.connectors import bac, comprar_ar, pbac
 from src.connectors.municipios import (
-    chivilcoy, escobar, florencio_varela, la_matanza, moron, quilmes,
-    san_andres_de_giles, san_miguel, sibom, tres_de_febrero, vicente_lopez,
+    avellaneda, chivilcoy, escobar, florencio_varela, ituzaingo, la_matanza,
+    moreno, moron, quilmes, san_andres_de_giles, san_miguel, sibom,
+    tres_de_febrero, vicente_lopez,
 )
 
 # Conectores municipales "simples": basta llamar fetch() sin argumentos.
@@ -28,6 +29,9 @@ MUNICIPIOS_SIMPLES = [
     ("Tres de Febrero", tres_de_febrero),
     ("Florencio Varela", florencio_varela),
     ("Escobar", escobar),
+    ("Moreno", moreno),
+    ("Avellaneda", avellaneda),
+    ("Ituzaingó", ituzaingo),
 ]
 
 
