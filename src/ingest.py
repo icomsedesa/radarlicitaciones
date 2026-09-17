@@ -10,8 +10,9 @@ import sys
 from src import db
 from src.connectors import bac, comprar_ar, pbac
 from src.connectors.municipios import (
-    avellaneda, chivilcoy, escobar, florencio_varela, ituzaingo, la_matanza,
-    moreno, moron, quilmes, san_andres_de_giles, san_miguel, sibom,
+    avellaneda, berazategui, chivilcoy, escobar, florencio_varela,
+    general_rodriguez, ituzaingo, la_matanza, lanus, lomas_de_zamora, moreno,
+    moron, quilmes, san_andres_de_giles, san_isidro, san_miguel, sibom,
     tres_de_febrero, vicente_lopez,
 )
 
@@ -32,6 +33,20 @@ MUNICIPIOS_SIMPLES = [
     ("Moreno", moreno),
     ("Avellaneda", avellaneda),
     ("Ituzaingó", ituzaingo),
+    ("Lomas de Zamora", lomas_de_zamora),
+    ("Berazategui", berazategui),
+    ("San Isidro", san_isidro),
+    ("General Rodríguez", general_rodriguez),
+    ("Lanús", lanus),
+]
+
+# Municipios que reutilizan el conector generico de SIBOM (boletin oficial
+# compartido de la Provincia), parametrizados por city_id.
+MUNICIPIOS_SIBOM = [
+    ("Campana", 18, "muni_campana", "Municipalidad de Campana", "Municipio de Campana (GBA)"),
+    ("General San Martín", 57, "muni_gral_san_martin", "Municipalidad de General San Martín", "Municipio de General San Martín (GBA norte)"),
+    ("Capitán Sarmiento", 20, "muni_capitan_sarmiento", "Municipalidad de Capitán Sarmiento", "Municipio de Capitán Sarmiento (interior bonaerense)"),
+    ("San Vicente", 119, "muni_san_vicente", "Municipalidad de San Vicente", "Municipio de San Vicente (GBA sur)"),
 ]
 
 
@@ -68,14 +83,18 @@ def run(comprar_limit=None, bac_limit=None, pbac_pages=5, municipios=True):
             except Exception as e:  # un municipio caido no debe frenar al resto
                 print(f"  ! error: {e}")
 
-        print("== Municipio de Campana (vía SIBOM) ==")
-        rows = sibom.fetch(
-            city_id=18, fuente="muni_campana",
-            organismo="Municipalidad de Campana", jurisdiccion="Municipio de Campana (GBA)",
-        )
-        n = db.upsert_many(conn, rows)
-        print(f"  {n} filas cargadas")
-        total += n
+        for nombre, city_id, fuente, organismo, jurisdiccion in MUNICIPIOS_SIBOM:
+            print(f"== Municipio de {nombre} (vía SIBOM) ==")
+            try:
+                rows = sibom.fetch(
+                    city_id=city_id, fuente=fuente,
+                    organismo=organismo, jurisdiccion=jurisdiccion,
+                )
+                n = db.upsert_many(conn, rows)
+                print(f"  {n} filas cargadas")
+                total += n
+            except Exception as e:
+                print(f"  ! error: {e}")
 
     conn.close()
     print(f"\nTotal: {total} licitaciones en {db.DB_PATH}")

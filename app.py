@@ -28,6 +28,14 @@ FUENTES = [
     ("muni_moreno", "Moreno"),
     ("muni_avellaneda", "Avellaneda"),
     ("muni_ituzaingo", "Ituzaingó"),
+    ("muni_lomas_de_zamora", "Lomas de Zamora"),
+    ("muni_berazategui", "Berazategui"),
+    ("muni_gral_san_martin", "General San Martín"),
+    ("muni_capitan_sarmiento", "Capitán Sarmiento"),
+    ("muni_san_vicente", "San Vicente"),
+    ("muni_san_isidro", "San Isidro"),
+    ("muni_general_rodriguez", "General Rodríguez"),
+    ("muni_lanus", "Lanús"),
 ]
 
 # (fuente, nombre, descripcion) para el modal "Jurisdicciones adheridas" --
@@ -50,6 +58,14 @@ JURISDICCIONES = [
     ("muni_moreno", "Moreno", "Municipio (GBA oeste)"),
     ("muni_avellaneda", "Avellaneda", "Municipio (GBA sur)"),
     ("muni_ituzaingo", "Ituzaingó", "Municipio (GBA oeste)"),
+    ("muni_lomas_de_zamora", "Lomas de Zamora", "Municipio (GBA sur)"),
+    ("muni_berazategui", "Berazategui", "Municipio (GBA sur)"),
+    ("muni_gral_san_martin", "General San Martín", "Municipio (GBA norte, vía SIBOM)"),
+    ("muni_capitan_sarmiento", "Capitán Sarmiento", "Municipio (interior bonaerense, vía SIBOM)"),
+    ("muni_san_vicente", "San Vicente", "Municipio (GBA sur, vía SIBOM)"),
+    ("muni_san_isidro", "San Isidro", "Municipio (GBA norte)"),
+    ("muni_general_rodriguez", "General Rodríguez", "Municipio (GBA oeste)"),
+    ("muni_lanus", "Lanús", "Municipio (GBA sur)"),
 ]
 
 URGENCIA_CASE = """
