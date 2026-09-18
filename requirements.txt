@@ -4,3 +4,4 @@ beautifulsoup4
 flask
 playwright
 pdfplumber
+cryptography

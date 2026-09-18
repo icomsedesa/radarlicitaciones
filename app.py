@@ -1,14 +1,35 @@
 """Buscador simple (PoC) sobre la base normalizada. Ejecutar: python app.py"""
+import os
 from datetime import datetime
+from pathlib import Path
 from urllib.parse import urlencode
 
-from flask import Flask, abort, render_template, request
+from flask import Flask, abort, flash, redirect, render_template, request, session, url_for
 
-from src import db
+from src import db, secrets_store
 
 app = Flask(__name__)
 
+# clave de sesion de Flask (firma las cookies de sesion) -- autogenerada y
+# persistida en disco la primera vez, igual que la clave de cifrado de
+# secrets_store. No es la clave que cifra las contraseñas de portales.
+_FLASK_SECRET_PATH = Path(__file__).resolve().parent / "data" / ".flask_secret.key"
+_FLASK_SECRET_PATH.parent.mkdir(parents=True, exist_ok=True)
+if not _FLASK_SECRET_PATH.exists():
+    _FLASK_SECRET_PATH.write_bytes(os.urandom(32))
+app.secret_key = _FLASK_SECRET_PATH.read_bytes()
+
+# contraseña para acceder a /configuracion (donde se cargan credenciales de
+# portales) -- se define por variable de entorno, nunca queda en el codigo.
+# Si no esta configurada, /configuracion queda inaccesible (falla cerrado).
+ADMIN_PASSWORD = os.environ.get("RADAR_ADMIN_PASSWORD")
+
 PAGE_SIZE = 50
+
+PORTALES_CONFIGURABLES = [
+    ("comprar_ar", "COMPR.AR (Nación)", "https://comprar.gob.ar/"),
+    ("bac", "BAC (CABA)", "https://buenosairescompras.gob.ar/"),
+]
 
 FUENTES = [
     ("comprar_ar", "COMPR.AR (Nación)"),
@@ -16,6 +37,7 @@ FUENTES = [
     ("pbac", "PBAC (Provincia)"),
     ("mendoza", "Mendoza (Provincia)"),
     ("mendoza_osep", "Mendoza (OSEP)"),
+    ("pami", "PAMI"),
     ("muni_san_miguel", "San Miguel"),
     ("muni_la_matanza", "La Matanza"),
     ("muni_campana", "Campana"),
@@ -48,6 +70,7 @@ JURISDICCIONES = [
     ("pbac", "PBAC", "Provincia de Buenos Aires"),
     ("mendoza", "Mendoza", "Provincia de Mendoza y dependencias (hospitales, ministerios, áreas de salud)"),
     ("mendoza_osep", "Mendoza (OSEP)", "Obra Social de Empleados Públicos de Mendoza — insumos médicos"),
+    ("pami", "PAMI", "INSSJP — Nivel Central. Incluye comparativas públicas (Actas de Apertura con todas las ofertas recibidas)"),
     ("muni_san_miguel", "San Miguel", "Municipio (GBA norte)"),
     ("muni_la_matanza", "La Matanza", "Municipio (GBA oeste)"),
     ("muni_campana", "Campana", "Municipio (GBA norte, vía SIBOM)"),
@@ -100,6 +123,8 @@ app.jinja_env.globals["url_with"] = _url_with
 def _fuente_clase(fuente: str) -> str:
     if fuente.startswith("mendoza"):
         return "mendoza"
+    if fuente == "pami":
+        return "pami"
     if fuente in ("comprar_ar", "bac", "pbac"):
         return fuente.replace("_ar", "")
     return "muni"
@@ -338,8 +363,61 @@ def detalle(licitacion_id):
     lic = dict(lic)
     lic["faltan"] = _texto_faltante(lic["fecha_apertura"], lic["urgencia"])
     items = db.get_items(conn, licitacion_id)
+    ofertas = db.get_ofertas(conn, licitacion_id)
     conn.close()
-    return render_template("detalle.html", lic=lic, items=items)
+    return render_template("detalle.html", lic=lic, items=items, ofertas=ofertas)
+
+
+def _autenticado():
+    return ADMIN_PASSWORD and session.get("autenticado") is True
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if not ADMIN_PASSWORD:
+        return (
+            "Configuración deshabilitada: falta definir la variable de entorno "
+            "RADAR_ADMIN_PASSWORD antes de iniciar la app.",
+            503,
+        )
+    if request.method == "POST":
+        if request.form.get("password") == ADMIN_PASSWORD:
+            session["autenticado"] = True
+            return redirect(url_for("configuracion"))
+        flash("Contraseña incorrecta.")
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    session.pop("autenticado", None)
+    return redirect(url_for("index"))
+
+
+@app.route("/configuracion", methods=["GET", "POST"])
+def configuracion():
+    if not _autenticado():
+        return redirect(url_for("login"))
+
+    conn = db.get_connection()
+    if request.method == "POST":
+        accion = request.form.get("accion")
+        portal = request.form.get("portal")
+        if accion == "guardar":
+            usuario = request.form.get("usuario", "").strip()
+            password = request.form.get("password", "")
+            if usuario and password:
+                db.guardar_credencial(conn, portal, usuario, secrets_store.encrypt(password))
+                flash(f"Credencial de {portal} guardada.")
+        elif accion == "eliminar":
+            db.eliminar_credencial(conn, portal)
+            flash(f"Credencial de {portal} eliminada.")
+
+    guardadas = {r["portal"]: r for r in db.listar_credenciales(conn)}
+    conn.close()
+    return render_template(
+        "configuracion.html", portales=PORTALES_CONFIGURABLES, guardadas=guardadas
+    )
 
 
 if __name__ == "__main__":

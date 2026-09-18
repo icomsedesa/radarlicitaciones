@@ -43,6 +43,26 @@ CREATE TABLE IF NOT EXISTS licitacion_items (
 );
 CREATE INDEX IF NOT EXISTS idx_items_licitacion ON licitacion_items(licitacion_id);
 CREATE INDEX IF NOT EXISTS idx_items_descripcion ON licitacion_items(descripcion);
+
+CREATE TABLE IF NOT EXISTS licitacion_ofertas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    licitacion_id INTEGER NOT NULL REFERENCES licitaciones(id) ON DELETE CASCADE,
+    proveedor TEXT,
+    cuit TEXT,
+    monto REAL,
+    moneda TEXT,
+    fecha_oferta TEXT,
+    es_ganadora INTEGER DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_ofertas_licitacion ON licitacion_ofertas(licitacion_id);
+CREATE INDEX IF NOT EXISTS idx_ofertas_proveedor ON licitacion_ofertas(proveedor);
+
+CREATE TABLE IF NOT EXISTS credenciales_portal (
+    portal TEXT PRIMARY KEY,
+    usuario TEXT,
+    password_cifrada BLOB,
+    actualizado_en TEXT DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 UPSERT_SQL = """
@@ -201,4 +221,81 @@ def set_items(conn, fuente, numero_proceso, items, url=None):
 def get_items(conn, licitacion_id):
     return conn.execute(
         "SELECT * FROM licitacion_items WHERE licitacion_id=? ORDER BY id", (licitacion_id,)
+    ).fetchall()
+
+
+def set_ofertas(conn, fuente, numero_proceso, ofertas):
+    """Reemplaza las ofertas (comparativas: quien cotizo, a que precio) de una
+    licitacion ya existente, identificada por fuente+numero_proceso. Cada
+    oferta es un dict con proveedor/cuit/monto/moneda/fecha_oferta/
+    es_ganadora. Devuelve False si la licitacion no existe."""
+    cur = conn.execute(
+        "SELECT id FROM licitaciones WHERE fuente=? AND numero_proceso=?",
+        (fuente, numero_proceso),
+    )
+    row = cur.fetchone()
+    if not row:
+        return False
+    licitacion_id = row["id"]
+    conn.execute("DELETE FROM licitacion_ofertas WHERE licitacion_id=?", (licitacion_id,))
+    for oferta in ofertas:
+        conn.execute(
+            """INSERT INTO licitacion_ofertas
+               (licitacion_id, proveedor, cuit, monto, moneda, fecha_oferta, es_ganadora)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                licitacion_id,
+                oferta.get("proveedor"),
+                oferta.get("cuit"),
+                oferta.get("monto"),
+                oferta.get("moneda"),
+                oferta.get("fecha_oferta"),
+                1 if oferta.get("es_ganadora") else 0,
+            ),
+        )
+    conn.commit()
+    return True
+
+
+def get_ofertas(conn, licitacion_id):
+    return conn.execute(
+        "SELECT * FROM licitacion_ofertas WHERE licitacion_id=? ORDER BY monto ASC", (licitacion_id,)
+    ).fetchall()
+
+
+def guardar_credencial(conn, portal, usuario, password_cifrada):
+    """`password_cifrada` ya debe venir cifrada (ver src/secrets_store.py) --
+    esta funcion no cifra, solo persiste."""
+    conn.execute(
+        """
+        INSERT INTO credenciales_portal (portal, usuario, password_cifrada, actualizado_en)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(portal) DO UPDATE SET
+            usuario=excluded.usuario, password_cifrada=excluded.password_cifrada,
+            actualizado_en=CURRENT_TIMESTAMP
+        """,
+        (portal, usuario, password_cifrada),
+    )
+    conn.commit()
+
+
+def eliminar_credencial(conn, portal):
+    conn.execute("DELETE FROM credenciales_portal WHERE portal=?", (portal,))
+    conn.commit()
+
+
+def obtener_credencial(conn, portal):
+    """Devuelve la fila cruda (con password_cifrada sin descifrar) o None.
+    Descifrar es responsabilidad de quien vaya a USAR la credencial (el
+    conector autenticado), nunca de una vista que la vaya a mostrar."""
+    return conn.execute(
+        "SELECT * FROM credenciales_portal WHERE portal=?", (portal,)
+    ).fetchone()
+
+
+def listar_credenciales(conn):
+    """Para la pantalla de Configuracion: estado por portal (configurado o
+    no, usuario, fecha) SIN el contenido de la contraseña."""
+    return conn.execute(
+        "SELECT portal, usuario, actualizado_en FROM credenciales_portal"
     ).fetchall()

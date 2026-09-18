@@ -11,6 +11,7 @@ PoC del buscador propio de licitaciones públicas argentinas (alternativa a Falc
 | PBAC | Provincia de Buenos Aires | Scraping (ASP.NET postback) | No — PBAC no publica renglones estructurados, solo dentro del PDF del pliego |
 | Mendoza (Provincia) | Provincia de Mendoza y dependencias (ministerios, hospitales, áreas dptales. de salud, Poder Judicial) | Dataset OCDS 1.1 abierto (histórico, con adjudicaciones) + buscador en vivo (Playwright, vigentes) | Sí, incluidos en el dataset histórico (11.412 renglones) |
 | Mendoza (OSEP) | Provincia de Mendoza — Obra Social de Empleados Públicos | Buscador en vivo (Playwright) | No |
+| PAMI | Nación — INSSJP, Nivel Central | HTML estático (sin login) + **Actas de Apertura públicas con todas las ofertas recibidas** | No (pero sí trae comparativas — ver abajo) |
 | Muni San Miguel | GBA norte | HTML propio (`/pliegos/`) + PDFs | No (fecha de apertura y expediente solo están dentro de los PDF, sin parsear todavía) |
 | Muni La Matanza | GBA oeste | Boletín Municipal mensual en PDF (texto real) | No |
 | Muni Campana | GBA norte | SIBOM (boletín oficial provincial compartido) | No |
@@ -37,6 +38,24 @@ PoC del buscador propio de licitaciones públicas argentinas (alternativa a Falc
 Investigados y **sin fuente digital viable hoy**: Tigre, Malvinas Argentinas, Esteban Echeverría, Ezeiza, José C. Paz, y (con reservas — sitio muy inestable) Hurlingham; Almirante Brown también se recomienda descartar (boletines 100% escaneados, sin licitaciones estructuradas); Pilar y Merlo están en SIBOM pero sus boletines no mencionan licitaciones (posible migración a otro sistema no identificado); San Fernando tiene portal de proveedores con login (CUIT) y su Boletín en PDF tiene muy bajo rendimiento por redacción irregular. Ver hallazgos abajo.
 
 **Interior de la provincia (fuera de GBA): sin explorar todavía**, más allá de San Andrés de Giles, Chivilcoy y Capitán Sarmiento. SIBOM tiene `city_id` para los ~135 partidos de la provincia (`src/connectors/municipios/sibom.py`, reutilizable), así que sumar más municipios del interior es en gran parte cuestión de probar cada `city_id` contra el conector genérico — pendiente de una pasada cuando haya pedido concreto del área comercial.
+
+## Comparativas (ofertas de todos los oferentes, no solo el ganador)
+
+Nueva tabla `licitacion_ofertas` (independiente de `licitacion_items`/renglones): guarda, por licitación, quién ofertó, CUIT, fecha de la oferta y monto cotizado — se ve en el detalle de cada licitación como sección "Comparativas — ofertas recibidas" cuando hay datos.
+
+**Hallazgo clave: PAMI publica esto públicamente, sin login.** Su "Cuadro de Actas de Apertura" (`prestadores.pami.org.ar/result.php?c=7-1-3&par=1`) linkea, por expediente, un PDF con **todas** las ofertas recibidas (razón social, CUIT, fecha/hora de recepción, precio) — no solo la adjudicataria. `src/connectors/pami.py` lo parsea con `pdfplumber.extract_tables()` (la tabla tiene grilla real; el texto plano mezclaba el encabezado multi-línea con la primera fila de datos, dando nombres de proveedor corruptos — hubo que cambiar de `extract_text()` a `extract_tables()`). Con esto se cargaron 271 ofertas reales sobre 145 procesos ya abiertos, con competidores y precios de insumos médicos (implantes cocleares, válvulas, neuroestimuladores, etc.) — exactamente el tipo de dato que motivó pedir esto para COMPR.AR/BAC, pero público.
+
+**COMPR.AR nacional NO expone lo mismo sin login.** Se verificó: la página pública de un proceso adjudicado (`VistaPreviaPliegoCiudadano.aspx`) solo muestra el "Documento contractual por proveedor" (la adjudicataria, dato que igual ya se tiene vía `Adjudicaciones.csv`) — no hay una sección tipo "Acta de Apertura" con todas las ofertas. Para ver las ofertas perdedoras hace falta la cuenta de proveedor logueada, como originalmente se planteó.
+
+### Credenciales de portales (COMPR.AR/BAC) — arquitectura de seguridad
+
+Para poder automatizar el login a COMPR.AR/BAC sin que las contraseñas queden en el código ni pasen por acá:
+
+- **`src/secrets_store.py`**: cifrado simétrico (Fernet/`cryptography`). La clave vive en `data/.secret.key`, autogenerada la primera vez, fuera de git (`data/` ya está en `.gitignore`). Sin esa clave los valores cifrados son inútiles — si se pierde el archivo, hay que volver a cargar las credenciales.
+- **Tabla `credenciales_portal`**: `usuario` + `password_cifrada` (BLOB), nunca texto plano.
+- **`/configuracion`**: pantalla donde el usuario carga usuario/contraseña de cada portal *él mismo* — nunca se escriben acá. Queda detrás de un login propio (`/login`), habilitado solo si está definida la variable de entorno `RADAR_ADMIN_PASSWORD` (si no está, la pantalla queda inaccesible — falla cerrado, no abierto). La contraseña guardada nunca se vuelve a mostrar, solo "configurado desde [fecha]".
+
+Pendiente (siguiente paso): el conector que efectivamente use estas credenciales para loguearse en COMPR.AR/BAC vía Playwright y traer las ofertas — antes de construirlo hace falta ver la estructura real de esa pantalla logueada (no es posible sin la cuenta), así que el paso siguiente es que alguien de Icom se loguee y comparta capturas de la vista de ofertas post-apertura, igual que se hizo con Falcontenders.
 
 ## Buscador web
 
@@ -103,14 +122,14 @@ python -m venv .venv
 
 Guarda todo en `data/licitaciones.db` (SQLite). Los CSV/JSON descargados se cachean en `data/<fuente>/` — borrar esa carpeta para forzar una nueva descarga.
 
-## Buscador web
+## Correr la app
 
 ```
 .venv\Scripts\python app.py
 ```
 
-Abre http://localhost:5000
+Abre http://localhost:5000. Para habilitar `/configuracion` (credenciales de portales), definir antes `RADAR_ADMIN_PASSWORD` como variable de entorno — sin eso la pantalla queda inaccesible.
 
 ## Estado
 
-Prueba de concepto (Fase 1-2 del plan): valida que la ingesta, normalización y búsqueda funcionan de punta a punta con datos reales, ya con **14 municipios sumados** (San Miguel, La Matanza, Campana, Vicente López, San Andrés de Giles, Chivilcoy, Quilmes, Morón, Tres de Febrero, Florencio Varela, Escobar, Moreno, Avellaneda, Ituzaingó). Todavía no tiene: alertas, deduplicación entre fuentes, ni los municipios pendientes de una próxima pasada (San Isidro, San Fernando, Lanús, Berazategui, Lomas de Zamora, General San Martín, Pilar, General Rodríguez, Merlo — ver detalle arriba). Quedan además sin explorar Hurlingham (dudoso, sitio inestable) y los descartados por falta de fuente digital (Tigre, Malvinas Argentinas, Esteban Echeverría, Ezeiza, José C. Paz, Almirante Brown).
+Prueba de concepto (Fase 1-2 del plan, más una primera expansión fuera del alcance original): ingesta, normalización, búsqueda y comparativas funcionando de punta a punta con datos reales. **28 fuentes conectadas**: Nación (COMPR.AR), CABA (BAC), Provincia de Buenos Aires (PBAC), Provincia de Mendoza (+ OSEP), PAMI (Nación, con comparativas públicas), y 22 municipios del Gran Buenos Aires + interior bonaerense. Todavía no tiene: alertas, deduplicación entre fuentes, el conector autenticado a COMPR.AR/BAC para comparativas completas (ver sección "Comparativas" arriba — la infraestructura de credenciales ya está, falta el scraper en sí), ni el barrido del interior de Mendoza/Buenos Aires más allá de lo ya conectado.

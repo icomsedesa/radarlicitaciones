@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Configuración · Radar de Licitaciones</title>
+<link rel="icon" href="{{ url_for('static', filename='isotipo.png') }}">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand-teal:#007068; --brand-teal-dark:#00504a;
+    --bg:#EFF4F2; --surface:#FFFFFF; --surface-2:#E6EDEA; --border:#D6E0DC; --text:#122420; --text-muted:#57655F;
+    --sem-red:#C0392B; --sem-red-soft:#F7DCD8; --sem-green:#4E8F1C; --sem-green-soft:#E2EFD5;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Public Sans',-apple-system,'Segoe UI',sans-serif;font-size:15px;}
+  .topbar{background:linear-gradient(135deg,var(--brand-teal),var(--brand-teal-dark));color:#fff;padding:18px 24px;}
+  .topbar-inner{max-width:900px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;}
+  h1{font-family:'Poppins',sans-serif;font-weight:800;font-size:24px;margin:0;text-transform:uppercase;}
+  a.logout{color:rgba(255,255,255,.85);font-size:13px;text-decoration:underline;}
+  .page{max-width:900px;margin:0 auto;padding:28px 24px 64px;}
+  .flash{background:var(--sem-green-soft);color:var(--sem-green);padding:10px 14px;border-radius:8px;font-size:13.5px;margin-bottom:18px;font-weight:600;}
+  .intro{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:22px;font-size:13.5px;color:var(--text-muted);line-height:1.6;}
+  .intro b{color:var(--text);}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:18px;}
+  .card h2{font-size:16px;margin:0 0 4px;}
+  .card .estado{font-size:13px;margin-bottom:16px;}
+  .estado.ok{color:var(--sem-green);font-weight:600;}
+  .estado.no{color:var(--text-muted);}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+  .field{flex:1;min-width:180px;}
+  .field label{display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;}
+  input[type=text],input[type=password]{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:7px;font-size:14px;}
+  button{padding:9px 18px;border:none;border-radius:7px;font-weight:700;cursor:pointer;font-size:13.5px;}
+  button.guardar{background:var(--brand-teal);color:#fff;}
+  button.guardar:hover{background:var(--brand-teal-dark);}
+  button.eliminar{background:none;border:1.5px solid var(--sem-red);color:var(--sem-red);}
+  button.eliminar:hover{background:var(--sem-red-soft);}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-inner">
+    <h1>Configuración</h1>
+    <a class="logout" href="{{ url_for('logout') }}">Cerrar sesión</a>
+  </div>
+</div>
+<div class="page">
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}{% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}{% endif %}
+  {% endwith %}
+
+  <div class="intro">
+    Estas credenciales se guardan <b>cifradas</b> en esta base de datos y se usan solo para que los
+    conectores autenticados de esta app se logueen en el portal correspondiente y traigan
+    las cotizaciones/ofertas completas de cada proceso (no solo la adjudicataria). La contraseña
+    nunca se muestra de nuevo en pantalla una vez guardada.
+  </div>
+
+  {% for slug, nombre, portal_url in portales %}
+  <div class="card">
+    <h2>{{ nombre }}</h2>
+    {% if slug in guardadas %}
+      <div class="estado ok">✓ Configurado — usuario {{ guardadas[slug].usuario }}, actualizado {{ guardadas[slug].actualizado_en[:16] }}</div>
+    {% else %}
+      <div class="estado no">Sin configurar</div>
+    {% endif %}
+    <form method="post">
+      <input type="hidden" name="portal" value="{{ slug }}">
+      <input type="hidden" name="accion" value="guardar">
+      <div class="row">
+        <div class="field">
+          <label>Usuario / CUIT</label>
+          <input type="text" name="usuario" placeholder="usuario del portal" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Contraseña</label>
+          <input type="password" name="password" placeholder="••••••••" autocomplete="new-password">
+        </div>
+        <button type="submit" class="guardar">{{ 'Actualizar' if slug in guardadas else 'Guardar' }}</button>
+      </div>
+    </form>
+    {% if slug in guardadas %}
+    <form method="post" style="margin-top:8px;">
+      <input type="hidden" name="portal" value="{{ slug }}">
+      <input type="hidden" name="accion" value="eliminar">
+      <button type="submit" class="eliminar">Quitar credencial</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+</body>
+</html>

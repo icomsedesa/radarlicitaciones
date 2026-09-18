@@ -8,7 +8,7 @@ import argparse
 import sys
 
 from src import db
-from src.connectors import bac, comprar_ar, mendoza, pbac
+from src.connectors import bac, comprar_ar, mendoza, pami, pbac
 from src.connectors.municipios import (
     avellaneda, berazategui, chivilcoy, escobar, florencio_varela,
     general_rodriguez, ituzaingo, la_matanza, lanus, lomas_de_zamora, moreno,
@@ -77,6 +77,28 @@ def run(comprar_limit=None, bac_limit=None, pbac_pages=5, municipios=True):
     n, n_items = db.upsert_with_items(conn, rows)
     print(f"  {n} filas cargadas ({n_items} renglones)")
     total += n
+
+    print("== PAMI (Nivel Central) ==")
+    rows = pami.fetch()
+    n = db.upsert_many(conn, rows)
+    print(f"  {n} filas cargadas")
+    total += n
+
+    print("== PAMI (comparativas: actas de apertura) ==")
+    try:
+        # historico mas amplio que el listado de vigentes -- si el proceso
+        # todavia no estaba en la base (ya cerrado, fuera del listado de
+        # "vigentes hoy"), se crea aca con lo que trae el acta.
+        actas_con_ofertas = pami.fetch_todas_las_ofertas()
+        n_ofertas = 0
+        for row in actas_con_ofertas:
+            ofertas = row.pop("ofertas")
+            db.upsert_many(conn, [row])
+            if db.set_ofertas(conn, "pami", row["numero_proceso"], ofertas):
+                n_ofertas += len(ofertas)
+        print(f"  {len(actas_con_ofertas)} procesos con ofertas cargadas ({n_ofertas} ofertas)")
+    except Exception as e:
+        print(f"  ! error: {e}")
 
     if municipios:
         for nombre, conector in MUNICIPIOS_SIMPLES:

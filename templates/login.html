@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Ingresar · Radar de Licitaciones</title>
+<link rel="icon" href="{{ url_for('static', filename='isotipo.png') }}">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand-teal:#007068; --brand-teal-dark:#00504a;
+    --bg:#EFF4F2; --surface:#FFFFFF; --border:#D6E0DC; --text:#122420; --text-muted:#57655F;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--text);font-family:'Public Sans',-apple-system,'Segoe UI',sans-serif;}
+  .box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:32px;width:100%;max-width:340px;box-shadow:0 8px 24px -12px rgba(0,0,0,.15);}
+  h1{font-size:18px;margin:0 0 4px;}
+  p.sub{color:var(--text-muted);font-size:13px;margin:0 0 20px;}
+  input[type=password]{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;margin-bottom:14px;}
+  button{width:100%;padding:10px;border:none;border-radius:8px;background:var(--brand-teal);color:#fff;font-weight:700;cursor:pointer;font-size:14px;}
+  button:hover{background:var(--brand-teal-dark);}
+  .flash{background:#F7DCD8;color:#C0392B;padding:8px 12px;border-radius:8px;font-size:13px;margin-bottom:14px;}
+  a.back{display:block;text-align:center;margin-top:14px;font-size:13px;color:var(--text-muted);text-decoration:none;}
+</style>
+</head>
+<body>
+  <div class="box">
+    <h1>Configuración</h1>
+    <p class="sub">Acceso restringido — credenciales de portales externos.</p>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}{% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}{% endif %}
+    {% endwith %}
+    <form method="post">
+      <input type="password" name="password" placeholder="Contraseña" autofocus required>
+      <button type="submit">Ingresar</button>
+    </form>
+    <a class="back" href="{{ url_for('index') }}">← Volver al buscador</a>
+  </div>
+</body>
+</html>
