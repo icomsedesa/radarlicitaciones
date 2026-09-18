@@ -205,6 +205,7 @@
         <div class="pill-group">
           <a class="pill {{ 'active' if solo_con_renglones else '' }}" data-param="renglones" data-bool="1" href="{{ url_with(renglones=(None if solo_con_renglones else True)) }}">Con renglones</a>
           <a class="pill {{ 'active' if solo_vigentes else '' }}" data-param="vigentes" data-bool="1" href="{{ url_with(vigentes=(None if solo_vigentes else True)) }}">Vigentes hoy</a>
+          <a class="pill {{ 'active' if mostrar_historial else '' }}" data-param="historial" data-bool="1" href="{{ url_with(historial=(None if mostrar_historial else True)) }}">Incluir historial (cerradas)</a>
         </div>
       </div>
 
@@ -288,6 +289,7 @@
     if (fuente) p.set('fuente', fuente.dataset.value);
     if (document.querySelector('.pill[data-param="renglones"].active')) p.set('renglones', '1');
     if (document.querySelector('.pill[data-param="vigentes"].active')) p.set('vigentes', '1');
+    if (document.querySelector('.pill[data-param="historial"].active')) p.set('historial', '1');
     const urg = document.querySelector('.pill[data-param="urgencia"].active');
     if (urg) p.set('urgencia', urg.dataset.value);
     if (desdeInput.value) p.set('desde', desdeInput.value);

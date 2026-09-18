@@ -135,6 +135,7 @@ def _buscar():
     urgencia = request.args.get("urgencia", "").strip()
     apertura_desde = request.args.get("desde", "").strip()
     apertura_hasta = request.args.get("hasta", "").strip()
+    mostrar_historial = request.args.get("historial", "") == "1"
     try:
         pagina = max(1, int(request.args.get("pagina", "1")))
     except ValueError:
@@ -161,6 +162,11 @@ def _buscar():
     if apertura_hasta:
         where.append("date(base.fecha_apertura) <= :hasta")
         params["hasta"] = apertura_hasta
+    if not mostrar_historial:
+        # por defecto solo se muestran licitaciones con apertura futura --
+        # las cerradas y las que no tienen fecha cargada quedan afuera
+        # salvo que el usuario pida ver el historial completo.
+        where.append("base.urgencia IN ('rojo', 'amarillo', 'verde')")
 
     where_sql = f"WHERE {' AND '.join(where)}" if where else ""
     having_sql = "HAVING COUNT(i.id) > 0" if solo_con_renglones else ""
@@ -221,6 +227,7 @@ def _buscar():
         urgencia=urgencia,
         apertura_desde=apertura_desde,
         apertura_hasta=apertura_hasta,
+        mostrar_historial=mostrar_historial,
         fuentes=FUENTES,
         jurisdicciones=JURISDICCIONES,
         por_fuente=por_fuente,
