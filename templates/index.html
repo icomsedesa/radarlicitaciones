@@ -104,6 +104,11 @@
   .jur-link{background:none;border:none;padding:0;font:inherit;color:rgba(255,255,255,.85);font-size:13px;text-decoration:underline;text-underline-offset:2px;cursor:pointer;}
   .jur-link:hover{color:#fff;}
 
+  .topnav{display:flex;align-items:center;gap:16px;margin-top:4px;}
+  .topnav a{color:rgba(255,255,255,.85);font-size:13px;text-decoration:underline;text-underline-offset:2px;}
+  .topnav a:hover,.topnav a.current{color:#fff;}
+  .topnav a.current{text-decoration:none;font-weight:700;}
+
   .pill-clear{background:none;border:1.5px dashed var(--border);color:var(--text-muted);}
   .pill-clear:hover{color:var(--text);border-color:var(--text-muted);}
 
@@ -167,7 +172,11 @@
   <div class="topbar-inner">
     <div>
       <h1>Radar de Licitaciones</h1>
-      <button type="button" class="jur-link" id="abrir-jurisdicciones">Jurisdicciones adheridas ({{ jurisdicciones|length }}) →</button>
+      <div class="topnav">
+        <a class="current" href="{{ url_for('index') }}">Buscador</a>
+        <a href="{{ url_for('inicio') }}">Inicio</a>
+        <button type="button" class="jur-link" id="abrir-jurisdicciones">Jurisdicciones adheridas ({{ jurisdicciones|length }}) →</button>
+      </div>
     </div>
     <img src="{{ url_for('static', filename='logo-reverse.png') }}" alt="IcomSalud" style="background:transparent;">
   </div>

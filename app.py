@@ -245,6 +245,59 @@ def index():
     return render_template("index.html", **ctx)
 
 
+@app.route("/inicio")
+def inicio():
+    conn = db.get_connection()
+
+    total_vigentes = conn.execute(
+        f"""
+        WITH base AS (SELECT *, {URGENCIA_CASE} AS urgencia FROM licitaciones)
+        SELECT COUNT(*) c FROM base WHERE urgencia IN ('rojo', 'amarillo', 'verde')
+        """
+    ).fetchone()["c"]
+
+    ultima_actualizacion = conn.execute(
+        "SELECT MAX(actualizado_en) m FROM licitaciones"
+    ).fetchone()["m"]
+
+    por_fuente_vigentes = conn.execute(
+        f"""
+        WITH base AS (SELECT *, {URGENCIA_CASE} AS urgencia FROM licitaciones)
+        SELECT fuente, COUNT(*) c FROM base
+        WHERE urgencia IN ('rojo', 'amarillo', 'verde')
+        GROUP BY fuente ORDER BY c DESC
+        """
+    ).fetchall()
+
+    por_urgencia_rows = conn.execute(
+        f"""
+        WITH base AS (SELECT *, {URGENCIA_CASE} AS urgencia FROM licitaciones)
+        SELECT urgencia, COUNT(*) c FROM base
+        WHERE urgencia IN ('rojo', 'amarillo', 'verde')
+        GROUP BY urgencia
+        """
+    ).fetchall()
+    por_urgencia = {"rojo": 0, "amarillo": 0, "verde": 0}
+    por_urgencia.update({r["urgencia"]: r["c"] for r in por_urgencia_rows})
+
+    conn.close()
+
+    nombres_fuente = dict(FUENTES)
+    por_fuente_vigentes = [
+        {"fuente": r["fuente"], "nombre": nombres_fuente.get(r["fuente"], r["fuente"]), "cantidad": r["c"]}
+        for r in por_fuente_vigentes
+    ]
+
+    return render_template(
+        "inicio.html",
+        total_vigentes=total_vigentes,
+        ultima_actualizacion=ultima_actualizacion,
+        por_fuente_vigentes=por_fuente_vigentes,
+        por_urgencia=por_urgencia,
+        jurisdicciones=JURISDICCIONES,
+    )
+
+
 @app.route("/api/contar")
 def api_contar():
     q = request.args.get("q", "").strip()

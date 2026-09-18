@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Inicio · Radar de Licitaciones</title>
+<link rel="icon" href="{{ url_for('static', filename='isotipo.png') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand-teal:#007068; --brand-teal-dark:#00504a; --brand-green:#6faf2a;
+    --bg:#EFF4F2; --surface:#FFFFFF; --surface-2:#E6EDEA; --border:#D6E0DC;
+    --text:#122420; --text-muted:#57655F;
+
+    --src-comprar:#007068; --src-comprar-soft:#DCEEEC;
+    --src-bac:#2E6DA4; --src-bac-soft:#DEE9F3;
+    --src-pbac:#7B4FA0; --src-pbac-soft:#EBE1F2;
+    --src-muni:#B8622E; --src-muni-soft:#F3E1D3;
+
+    --sem-red:#C0392B; --sem-red-soft:#F7DCD8;
+    --sem-amber:#B8860B; --sem-amber-soft:#F3E7C6;
+    --sem-green:#4E8F1C; --sem-green-soft:#E2EFD5;
+
+    --shadow:0 1px 2px rgba(10,30,25,.06), 0 6px 18px -10px rgba(10,30,25,.18);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Public Sans',-apple-system,'Segoe UI',sans-serif;font-size:15px;}
+  a{color:inherit;}
+
+  .topbar{background:linear-gradient(135deg,var(--brand-teal),var(--brand-teal-dark));color:#fff;padding:18px 24px;}
+  .topbar-inner{max-width:1600px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;}
+  .topbar img{height:64px;width:auto;display:block;}
+  .topbar h1{font-family:'Poppins',sans-serif;font-weight:800;font-size:clamp(24px,3.4vw,34px);letter-spacing:.02em;margin:0;text-transform:uppercase;}
+  .topnav{display:flex;align-items:center;gap:16px;margin-top:4px;}
+  .topnav a{color:rgba(255,255,255,.85);font-size:13px;text-decoration:underline;text-underline-offset:2px;}
+  .topnav a:hover,.topnav a.current{color:#fff;}
+  .topnav a.current{text-decoration:none;font-weight:700;}
+
+  .page{max-width:1600px;margin:0 auto;padding:24px 24px 64px;}
+  .grid{display:grid;grid-template-columns:260px 1fr;gap:18px;margin-bottom:18px;}
+  .grid-3{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  @media (max-width:900px){ .grid,.grid-3{grid-template-columns:1fr;} }
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;box-shadow:var(--shadow);}
+  .card h2{font-family:'Poppins',sans-serif;font-size:14px;margin:0 0 14px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);}
+
+  .hero-num{font-family:'Poppins',sans-serif;font-weight:800;font-size:46px;line-height:1;color:var(--brand-teal-dark);}
+  .hero-label{font-size:13px;color:var(--text-muted);margin-top:6px;}
+  .hero-sub{font-size:12px;color:var(--text-muted);margin-top:14px;padding-top:14px;border-top:1px solid var(--border);}
+
+  table{border-collapse:collapse;width:100%;font-size:13.5px;}
+  th{text-align:left;font-family:ui-monospace,monospace;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);padding:8px 0;border-bottom:1px solid var(--border);}
+  td{padding:8px 0;border-bottom:1px solid var(--border);}
+  tr:last-child td{border-bottom:none;}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:700;color:var(--text);}
+  a.fuente-link{text-decoration:none;color:var(--text);font-weight:600;}
+  a.fuente-link:hover{color:var(--brand-teal);text-decoration:underline;}
+
+  .urg-row{display:flex;gap:14px;flex-wrap:wrap;}
+  .urg-tile{flex:1;min-width:140px;background:var(--surface-2);border-radius:10px;padding:14px 16px;}
+  .urg-tile .n{font-family:'Poppins',sans-serif;font-weight:800;font-size:26px;}
+  .urg-tile .l{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-muted);margin-top:4px;}
+  .urg-tile .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+  .urg-rojo .n{color:var(--sem-red);} .urg-rojo .dot{background:var(--sem-red);}
+  .urg-amarillo .n{color:var(--sem-amber);} .urg-amarillo .dot{background:var(--sem-amber);}
+  .urg-verde .n{color:var(--sem-green);} .urg-verde .dot{background:var(--sem-green);}
+
+  .kw-bars{display:flex;flex-direction:column;gap:10px;}
+  .kw-bar-row{display:grid;grid-template-columns:110px 1fr 40px;align-items:center;gap:10px;}
+  .kw-bar-label{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .kw-bar-track{background:var(--surface-2);border-radius:999px;height:20px;overflow:hidden;}
+  .kw-bar-fill{background:var(--brand-teal);height:100%;border-radius:999px;min-width:4px;transition:width .3s ease;}
+  .kw-bar-value{font-family:ui-monospace,monospace;font-size:12.5px;font-weight:700;color:var(--text);text-align:right;}
+  .kw-empty{color:var(--text-muted);font-size:13px;font-style:italic;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div>
+      <h1>Radar de Licitaciones</h1>
+      <div class="topnav">
+        <a href="{{ url_for('index') }}">Buscador</a>
+        <a class="current" href="{{ url_for('inicio') }}">Inicio</a>
+      </div>
+    </div>
+    <img src="{{ url_for('static', filename='logo-reverse.png') }}" alt="IcomSalud" style="background:transparent;">
+  </div>
+</div>
+
+<div class="page">
+
+  <div class="grid">
+    <div class="card">
+      <h2>Vigentes hoy</h2>
+      <div class="hero-num">{{ '{:,}'.format(total_vigentes) }}</div>
+      <div class="hero-label">licitaciones con fecha de apertura futura</div>
+      <div class="hero-sub">Última actualización de datos: {{ ultima_actualizacion[:10] if ultima_actualizacion else '—' }}</div>
+    </div>
+
+    <div class="card">
+      <h2>Vigentes por urgencia</h2>
+      <div class="urg-row">
+        <div class="urg-tile urg-rojo">
+          <div class="n">{{ por_urgencia.rojo }}</div>
+          <div class="l"><span class="dot"></span>Urgente (&lt;48h)</div>
+        </div>
+        <div class="urg-tile urg-amarillo">
+          <div class="n">{{ por_urgencia.amarillo }}</div>
+          <div class="l"><span class="dot"></span>Pronto (&lt;7 días)</div>
+        </div>
+        <div class="urg-tile urg-verde">
+          <div class="n">{{ por_urgencia.verde }}</div>
+          <div class="l"><span class="dot"></span>Con tiempo</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-3">
+    <div class="card">
+      <h2>Vigentes por fuente</h2>
+      {% if por_fuente_vigentes %}
+      <table>
+        <thead><tr><th>Fuente</th><th style="text-align:right;">Cantidad</th></tr></thead>
+        <tbody>
+          {% for f in por_fuente_vigentes %}
+          <tr>
+            <td><a class="fuente-link" href="{{ url_for('index', fuente=f.fuente) }}">{{ f.nombre }}</a></td>
+            <td class="num">{{ f.cantidad }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+        <div class="kw-empty">No hay licitaciones vigentes en este momento.</div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h2>Vigentes por palabra clave</h2>
+      <div class="kw-bars" id="kw-bars">
+        <div class="kw-empty">Cargando…</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  const KW_KEY = 'radar_palabras_clave';
+  const kwBars = document.getElementById('kw-bars');
+
+  function kwCargar(){
+    try { return JSON.parse(localStorage.getItem(KW_KEY)) || []; }
+    catch (e) { return []; }
+  }
+
+  async function render(){
+    const palabras = kwCargar();
+    if (!palabras.length) {
+      kwBars.innerHTML = '<div class="kw-empty">Todavía no guardaste palabras clave. Agregalas desde el buscador (panel izquierdo) y van a aparecer acá.</div>';
+      return;
+    }
+    const conteos = await Promise.all(palabras.map(p =>
+      fetch('/api/contar?q=' + encodeURIComponent(p)).then(r => r.json()).then(d => ({palabra: p, count: d.count})).catch(() => ({palabra: p, count: 0}))
+    ));
+    conteos.sort((a, b) => b.count - a.count);
+    const max = Math.max(1, ...conteos.map(c => c.count));
+    kwBars.innerHTML = '';
+    conteos.forEach(c => {
+      const row = document.createElement('div');
+      row.className = 'kw-bar-row';
+      const pct = Math.round((c.count / max) * 100);
+      row.innerHTML = `
+        <div class="kw-bar-label" title="${c.palabra}">${c.palabra}</div>
+        <div class="kw-bar-track"><div class="kw-bar-fill" style="width:${pct}%"></div></div>
+        <div class="kw-bar-value">${c.count}</div>
+      `;
+      kwBars.appendChild(row);
+    });
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
