@@ -5,3 +5,5 @@ flask
 playwright
 pdfplumber
 cryptography
+libsql-client
+python-dotenv

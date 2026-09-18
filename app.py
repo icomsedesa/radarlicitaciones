@@ -1,23 +1,35 @@
 """Buscador simple (PoC) sobre la base normalizada. Ejecutar: python app.py"""
+import base64
 import os
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlencode
 
+from dotenv import load_dotenv
 from flask import Flask, abort, flash, redirect, render_template, request, session, url_for
 
 from src import db, secrets_store
 
+load_dotenv()
+
 app = Flask(__name__)
 
-# clave de sesion de Flask (firma las cookies de sesion) -- autogenerada y
-# persistida en disco la primera vez, igual que la clave de cifrado de
-# secrets_store. No es la clave que cifra las contraseñas de portales.
-_FLASK_SECRET_PATH = Path(__file__).resolve().parent / "data" / ".flask_secret.key"
-_FLASK_SECRET_PATH.parent.mkdir(parents=True, exist_ok=True)
-if not _FLASK_SECRET_PATH.exists():
-    _FLASK_SECRET_PATH.write_bytes(os.urandom(32))
-app.secret_key = _FLASK_SECRET_PATH.read_bytes()
+# clave de sesion de Flask (firma las cookies de sesion) -- NO es la clave
+# que cifra las contraseñas de portales (esa es SECRETS_ENCRYPTION_KEY, en
+# secrets_store.py). En deploys sin filesystem persistente entre
+# ejecuciones (Vercel) hay que definir FLASK_SECRET_KEY como variable de
+# entorno -- si no, cada arranque frío generaria una clave distinta y
+# invalidaria las sesiones activas. En local, sin esa variable, se
+# autogenera y persiste en disco (alcanza para desarrollo).
+_flask_secret_env = os.environ.get("FLASK_SECRET_KEY")
+if _flask_secret_env:
+    app.secret_key = base64.urlsafe_b64decode(_flask_secret_env)
+else:
+    _FLASK_SECRET_PATH = Path(__file__).resolve().parent / "data" / ".flask_secret.key"
+    _FLASK_SECRET_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if not _FLASK_SECRET_PATH.exists():
+        _FLASK_SECRET_PATH.write_bytes(os.urandom(32))
+    app.secret_key = _FLASK_SECRET_PATH.read_bytes()
 
 # contraseña para acceder a /configuracion (donde se cargan credenciales de
 # portales) -- se define por variable de entorno, nunca queda en el codigo.

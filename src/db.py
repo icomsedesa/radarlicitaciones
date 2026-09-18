@@ -1,6 +1,19 @@
-"""Esquema y acceso a la base de datos (SQLite para el PoC; migrar a Postgres en Fase 1 productiva)."""
+"""Esquema y acceso a la base de datos.
+
+Local (default): SQLite en `data/licitaciones.db`, via el modulo estandar
+`sqlite3`. Si estan definidas `TURSO_DATABASE_URL` y `TURSO_AUTH_TOKEN`
+(en el entorno o en un `.env` -- ver `src/db_turso.py`), se conecta en
+cambio a esa base remota en Turso, con el mismo esquema y las mismas
+consultas -- ver `db_turso.TursoConnection`, un shim que imita lo minimo
+de la API de `sqlite3` que este archivo usa."""
 import sqlite3
 from pathlib import Path
+
+from dotenv import load_dotenv
+
+from src import db_turso
+
+load_dotenv()
 
 DB_PATH = Path(__file__).resolve().parent.parent / "data" / "licitaciones.db"
 
@@ -86,10 +99,12 @@ ON CONFLICT(fuente, numero_proceso) DO UPDATE SET
 
 
 def get_connection():
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
+    conn = db_turso.conectar_desde_env()
+    if conn is None:
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(SCHEMA)
     return conn
 

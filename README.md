@@ -130,7 +130,7 @@ python -m venv .venv
 
 `refresh_live` es el paso que soluciona el desfasaje del CSV masivo (ver más abajo) — conviene correrlo después de cada `ingest` y antes de `backfill_items`.
 
-Guarda todo en `data/licitaciones.db` (SQLite). Los CSV/JSON descargados se cachean en `data/<fuente>/` — borrar esa carpeta para forzar una nueva descarga.
+Guarda todo en `data/licitaciones.db` (SQLite local) salvo que estén definidas `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` (ver "Deploy" abajo), en cuyo caso escribe directo en la base remota. Los CSV/JSON descargados se cachean en `data/<fuente>/` — borrar esa carpeta para forzar una nueva descarga.
 
 ## Correr la app
 
@@ -139,6 +139,33 @@ Guarda todo en `data/licitaciones.db` (SQLite). Los CSV/JSON descargados se cach
 ```
 
 Abre http://localhost:5000. Para habilitar `/configuracion` (credenciales de portales), definir antes `RADAR_ADMIN_PASSWORD` como variable de entorno — sin eso la pantalla queda inaccesible.
+
+## Deploy (Turso + Vercel + GitHub Actions)
+
+La app en sí (`app.py`) es de solo lectura sobre la base — liviana, ideal para una función serverless. La ingesta (scrapers, varios con Playwright, algunos tardan minutos) no lo es, así que se separan en dos piezas:
+
+- **Turso** (SQLite remoto, compatible con el mismo SQL que ya usamos) como base de datos accesible por red, en vez del archivo local.
+- **Vercel** sirve solo la app de lectura (`api/index.py` reexpone la `app` de Flask; `vercel.json` enruta todo el tráfico ahí).
+- **GitHub Actions** (`.github/workflows/ingesta.yml`) corre la ingesta completa en un horario (cron diario) — Chromium/Playwright no tiene problema corriendo ahí, a diferencia de Vercel.
+
+### Variables de entorno (las mismas en los tres lugares: `.env` local, Vercel, y secrets de GitHub Actions)
+
+| Variable | Para qué |
+|---|---|
+| `TURSO_DATABASE_URL` | URL de la base (`libsql://...`) — se obtiene al crear la base en Turso |
+| `TURSO_AUTH_TOKEN` | Token de esa base puntual (no el token de organización — ese es más sensible, no debería vivir en ningún deploy) |
+| `FLASK_SECRET_KEY` | Firma las cookies de sesión — **fija**, si no se define se autogenera en disco local (sirve para dev, no para Vercel: ahí el disco no persiste entre invocaciones y cada arranque frío invalidaría las sesiones activas) |
+| `SECRETS_ENCRYPTION_KEY` | Cifra las credenciales de portales guardadas en `/configuracion` — igual de fija que la anterior; si cambia, las credenciales ya guardadas quedan indescifrables para siempre |
+| `RADAR_ADMIN_PASSWORD` | Contraseña de acceso a `/configuracion` |
+
+`FLASK_SECRET_KEY` y `SECRETS_ENCRYPTION_KEY` se generan una sola vez (`python -c "import os,base64; print(base64.urlsafe_b64encode(os.urandom(32)).decode())"` y `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` respectivamente) y de ahí en más se copian tal cual a cada lugar — nunca se regeneran salvo que se quiera invalidar todo a propósito.
+
+### Pasos para el primer deploy
+
+1. **Turso**: crear la base (ya hecho para este proyecto — `radar-licitaciones` en la organización de Icom). Si hay que rehacerla: `POST /v1/organizations/{org}/databases` de la [API de Turso](https://docs.turso.tech/api-reference), con un token de organización (Settings de Turso > API Tokens).
+2. **Migrar los datos ya cargados** (evita tener que re-scrapear todo desde cero): `.venv\Scripts\python -m src.migrar_a_turso` — copia todo lo que haya en `data/licitaciones.db` a Turso, preservando los `id` (para que renglones/comparativas sigan apuntando a la licitación correcta).
+3. **Vercel**: desde vercel.com, "Add New… > Project", importar este repo de GitHub. En Project Settings > Environment Variables, cargar las 5 variables de la tabla de arriba. Deploy.
+4. **GitHub Actions**: en el repo de GitHub, Settings > Secrets and variables > Actions, cargar `TURSO_DATABASE_URL` y `TURSO_AUTH_TOKEN` como secrets. El workflow ya programado corre solo desde ahí (o se puede disparar a mano desde la pestaña "Actions").
 
 ## Estado
 
