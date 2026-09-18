@@ -252,9 +252,10 @@ def api_contar():
         return {"count": 0}
     conn = db.get_connection()
     count = conn.execute(
-        """
-        SELECT COUNT(*) c FROM licitaciones
-        WHERE estado IN ('Publicado', 'active')
+        f"""
+        WITH base AS (SELECT *, {URGENCIA_CASE} AS urgencia FROM licitaciones)
+        SELECT COUNT(*) c FROM base
+        WHERE base.urgencia IN ('rojo', 'amarillo', 'verde')
           AND (titulo LIKE :q OR descripcion LIKE :q OR organismo LIKE :q OR numero_proceso LIKE :q)
         """,
         {"q": f"%{q}%"},
