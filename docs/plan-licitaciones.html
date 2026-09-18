@@ -454,6 +454,16 @@ footer{ margin-top:60px; padding-top:20px; border-top:1px solid var(--border); c
           </ul>
         </div>
         <div class="phase">
+          <div class="phase-head"><span class="phase-name">Fase 2b — Expansión a otras provincias: Mendoza</span><span class="phase-time">en curso</span></div>
+          <p>Primer paso fuera del alcance original (Nación + CABA + Pcia. Bs. As.), a pedido concreto: IcomSalud está trabajando con Mendoza.</p>
+          <ul class="plain">
+            <li><span class="badge ok">Hecho</span> <strong>Hallazgo clave:</strong> Mendoza usa el mismo software COMPRAR que la Nación (mismos ids de control ASP.NET, mismo mecanismo de paginación) — permitió adaptar el conector de búsqueda en vivo ya existente en vez de construir uno desde cero.</li>
+            <li><span class="badge ok">Hecho</span> <strong>Mendoza Provincia:</strong> dataset abierto OCDS 1.1 real (sin aplanar, a diferencia del CSV compilado de BAC) con <strong>1.554 licitaciones históricas, 11.412 renglones y adjudicaciones reales (proveedor + monto)</strong> — más buscador en vivo para lo vigente hoy (71 licitaciones "Publicado"). Cubre ministerios, Poder Judicial, y sobre todo hospitales y áreas departamentales de salud de toda la provincia.</li>
+            <li><span class="badge ok">Hecho</span> <strong>OSEP (Obra Social de Empleados Públicos de Mendoza):</strong> portal separado, mismo software, sin dataset abierto pero con buscador en vivo (35 licitaciones vigentes) — compra insumos médicos directos (catéteres, stents, implantes cocleares), altamente relevante para el negocio.</li>
+            <li><span class="badge warn">Pendiente</span> Municipios/departamentos de Mendoza con sistema propio (ej. Ciudad de Mendoza capital) — no relevado todavía; la cobertura actual es a nivel provincial y sus dependencias, no municipal.</li>
+          </ul>
+        </div>
+        <div class="phase">
           <div class="phase-head"><span class="phase-name">Fase 3 — Alertas y seguimiento</span><span class="phase-time">2 semanas</span></div>
           <p>Lo que reemplaza el día a día de Falcontenders.</p>
           <ul class="plain">
