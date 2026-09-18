@@ -14,6 +14,8 @@ FUENTES = [
     ("comprar_ar", "COMPR.AR (Nación)"),
     ("bac", "BAC (CABA)"),
     ("pbac", "PBAC (Provincia)"),
+    ("mendoza", "Mendoza (Provincia)"),
+    ("mendoza_osep", "Mendoza (OSEP)"),
     ("muni_san_miguel", "San Miguel"),
     ("muni_la_matanza", "La Matanza"),
     ("muni_campana", "Campana"),
@@ -44,6 +46,8 @@ JURISDICCIONES = [
     ("comprar_ar", "COMPR.AR", "Nación — bienes y servicios (ONC)"),
     ("bac", "BAC", "Ciudad Autónoma de Buenos Aires"),
     ("pbac", "PBAC", "Provincia de Buenos Aires"),
+    ("mendoza", "Mendoza", "Provincia de Mendoza y dependencias (hospitales, ministerios, áreas de salud)"),
+    ("mendoza_osep", "Mendoza (OSEP)", "Obra Social de Empleados Públicos de Mendoza — insumos médicos"),
     ("muni_san_miguel", "San Miguel", "Municipio (GBA norte)"),
     ("muni_la_matanza", "La Matanza", "Municipio (GBA oeste)"),
     ("muni_campana", "Campana", "Municipio (GBA norte, vía SIBOM)"),
@@ -94,6 +98,8 @@ app.jinja_env.globals["url_with"] = _url_with
 
 
 def _fuente_clase(fuente: str) -> str:
+    if fuente.startswith("mendoza"):
+        return "mendoza"
     if fuente in ("comprar_ar", "bac", "pbac"):
         return fuente.replace("_ar", "")
     return "muni"

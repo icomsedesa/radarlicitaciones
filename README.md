@@ -9,6 +9,8 @@ PoC del buscador propio de licitaciones públicas argentinas (alternativa a Falc
 | COMPR.AR | Nación (bienes/servicios) | CSV propio (ONC) | Sí, on-demand por proceso (`src/backfill_items.py`, vía Playwright) |
 | BAC | CABA | OCDS 1.1 | Sí, incluidos en la carga masiva |
 | PBAC | Provincia de Buenos Aires | Scraping (ASP.NET postback) | No — PBAC no publica renglones estructurados, solo dentro del PDF del pliego |
+| Mendoza (Provincia) | Provincia de Mendoza y dependencias (ministerios, hospitales, áreas dptales. de salud, Poder Judicial) | Dataset OCDS 1.1 abierto (histórico, con adjudicaciones) + buscador en vivo (Playwright, vigentes) | Sí, incluidos en el dataset histórico (11.412 renglones) |
+| Mendoza (OSEP) | Provincia de Mendoza — Obra Social de Empleados Públicos | Buscador en vivo (Playwright) | No |
 | Muni San Miguel | GBA norte | HTML propio (`/pliegos/`) + PDFs | No (fecha de apertura y expediente solo están dentro de los PDF, sin parsear todavía) |
 | Muni La Matanza | GBA oeste | Boletín Municipal mensual en PDF (texto real) | No |
 | Muni Campana | GBA norte | SIBOM (boletín oficial provincial compartido) | No |
@@ -76,6 +78,9 @@ Pendiente conocido: los renglones de COMPR.AR cargados en la primera corrida de 
   - **Capitán Sarmiento y San Vicente**: se suman a la lista de municipios que sí publican licitaciones reconocibles en su boletín SIBOM (a diferencia de Tigre, Malvinas Argentinas, Esteban Echeverría, Ezeiza, José C. Paz, Hurlingham, Pilar y Merlo, probados contra SIBOM en esta misma ronda y sin resultado).
 - **Varios sitios municipales tienen la cadena de certificados SSL incompleta** (falta el certificado intermedio) — funcionan con `curl` (usa el almacén de certificados del SO) pero fallan con `requests` de Python (usa `certifi`, más estricto). Se resuelve con `verify=False` en esos conectores puntuales (Tres de Febrero, Moreno, Avellaneda, Lomas de Zamora, Berazategui, San Isidro, General Rodríguez, Lanús) — son fuentes públicas de solo lectura, sin dato sensible en juego.
 - **SIBOM cubre prácticamente toda la provincia**: la lista de ciudades (`sibom.slyt.gba.gob.ar/cities`) tiene `city_id` para los ~135 partidos bonaerenses, GBA e interior por igual — no solo los que ya probamos. El conector genérico (`src/connectors/municipios/sibom.py`) sirve para cualquiera de ellos; el trabajo pendiente es solo probar cada `city_id` y ver si ese municipio en particular usa el boletín para publicar licitaciones (muchos no lo hacen, como se ve en la lista de "sin fuente viable" de arriba).
+- **Mendoza usa el mismo software COMPRAR que la Nación** (misma versión de sistema, mismos ids de control ASP.NET `ctl00_CPH1_ddlEstadoProceso` / `ctl00_CPH1_GridListaPliegos`, mismo valor "Publicado"=6, misma paginación `__doPostBack('...GridListaPliegos','Page$N')`) — hallazgo que permitió adaptar `comprar_ar_live.py` casi directo. Dos particularidades: (1) la página de búsqueda (`BuscarAvanzado2.aspx`) redirige al home si no se entra por el botón "BÚSQUEDA DE PROCESOS" del home (requiere un paso previo de "calentamiento" de sesión vía `__doPostBack`); (2) la grilla trae una columna extra de monto estimado que el buscador nacional no tiene.
+  - **Mendoza Provincia** además tiene un dataset abierto real ("Contrataciones Abiertas Mendoza", `datosabiertos-compras.mendoza.gov.ar`) en **OCDS 1.1 sin aplanar** (no un CSV compilado como el `bac_anual.csv` de CABA) — cada release trae tender + planning + awards + contracts completos, **incluyendo renglones y adjudicaciones con proveedor y monto real**, sin necesitar backfill aparte vía Playwright. Como todo dataset masivo, está desfasado (el archivo más reciente llega hasta enero 2026) — se complementa con el buscador en vivo para lo realmente vigente hoy. `buyer.name` en el dataset ya identifica muchísimas dependencias de salud (hospitales, áreas departamentales de salud, Ministerio de Salud) sin necesitar un conector separado por cada una.
+  - **OSEP (Obra Social de Empleados Públicos de Mendoza)** — `comprarosep.mendoza.gov.ar` — es un **deployment separado** del portal provincial (versión de software distinta, v5 vs v1.0.5), sin dataset abierto propio, pero con el mismo buscador en vivo (grilla de 7 columnas, sin monto, igual a la nacional). Muy relevante para IcomSalud: compra insumos médicos directos (catéteres, stents, prótesis, implantes cocleares), no solo servicios administrativos.
 
 ## Setup
 
@@ -90,7 +95,7 @@ python -m venv .venv
 ```
 .venv\Scripts\python -m src.ingest --rapido   # carga acotada, rápida, para probar
 .venv\Scripts\python -m src.ingest            # carga completa (COMPR.AR + BAC completos, PBAC 5 páginas)
-.venv\Scripts\python -m src.refresh_live      # estado real de COMPR.AR contra el buscador en vivo (~48 páginas, unos minutos)
+.venv\Scripts\python -m src.refresh_live      # estado real contra los buscadores en vivo (COMPR.AR, Mendoza, OSEP), unos minutos
 .venv\Scripts\python -m src.backfill_items    # renglones de las que quedaron con estado "Publicado"
 ```
 

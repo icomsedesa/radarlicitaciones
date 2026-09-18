@@ -8,7 +8,7 @@ import argparse
 import sys
 
 from src import db
-from src.connectors import bac, comprar_ar, pbac
+from src.connectors import bac, comprar_ar, mendoza, pbac
 from src.connectors.municipios import (
     avellaneda, berazategui, chivilcoy, escobar, florencio_varela,
     general_rodriguez, ituzaingo, la_matanza, lanus, lomas_de_zamora, moreno,
@@ -70,6 +70,12 @@ def run(comprar_limit=None, bac_limit=None, pbac_pages=5, municipios=True):
     rows = pbac.fetch(max_pages=pbac_pages)
     n = db.upsert_many(conn, rows)
     print(f"  {n} filas cargadas")
+    total += n
+
+    print("== Mendoza (Provincia y dependencias) ==")
+    rows = mendoza.fetch()
+    n, n_items = db.upsert_with_items(conn, rows)
+    print(f"  {n} filas cargadas ({n_items} renglones)")
     total += n
 
     if municipios:

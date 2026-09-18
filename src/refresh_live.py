@@ -13,7 +13,7 @@ Uso:
 import argparse
 
 from src import db
-from src.connectors import comprar_ar_live
+from src.connectors import comprar_ar_live, mendoza_live
 
 
 def run(max_paginas=None):
@@ -27,6 +27,28 @@ def run(max_paginas=None):
 
     print(f"  {n_update} actualizadas (ya estaban del CSV masivo)")
     print(f"  {n_insert} nuevas (todavia no estaban en el CSV masivo)")
+
+    print("Consultando comprar.mendoza.gov.ar (Estado = Publicado)...")
+    rows = mendoza_live.fetch(max_paginas=max_paginas)
+    print(f"{len(rows)} licitaciones publicadas encontradas")
+
+    conn = db.get_connection()
+    n_update, n_insert = db.upsert_live_estado(conn, rows)
+    conn.close()
+
+    print(f"  {n_update} actualizadas (ya estaban del dataset historico)")
+    print(f"  {n_insert} nuevas (todavia no estaban en el dataset historico)")
+
+    print("Consultando comprarosep.mendoza.gov.ar (Estado = Publicado)...")
+    rows = mendoza_live.fetch_osep(max_paginas=max_paginas)
+    print(f"{len(rows)} licitaciones publicadas encontradas")
+
+    conn = db.get_connection()
+    n_update, n_insert = db.upsert_live_estado(conn, rows)
+    conn.close()
+
+    print(f"  {n_update} actualizadas")
+    print(f"  {n_insert} nuevas")
 
 
 if __name__ == "__main__":
