@@ -4,7 +4,11 @@ tal cual (para que licitacion_items.licitacion_id y
 licitacion_ofertas.licitacion_id sigan apuntando bien) en vez de re-
 scrapear todas las fuentes de nuevo.
 
-Uso: .venv\\Scripts\\python.exe scripts_migrar_a_turso.py
+Es idempotente: si una tabla ya tiene en Turso la misma cantidad de
+filas que en el local, se salta -- se puede volver a correr sin miedo
+si se corta a mitad de camino.
+
+Uso: .venv\\Scripts\\python.exe -m src.migrar_a_turso
 """
 import sqlite3
 
@@ -38,15 +42,10 @@ def migrar_tabla(local_conn, turso_conn, tabla):
     print(f"  {tabla}: {len(filas)} filas a migrar")
     if filas:
         turso_conn.executemany(insert_sql, filas)
-
-    max_id = max((f["id"] for f in filas), default=0)
-    if max_id:
-        turso_conn.execute(
-            "INSERT INTO sqlite_sequence (name, seq) VALUES (:t, :m) "
-            "ON CONFLICT(name) DO UPDATE SET seq=excluded.seq",
-            {"t": tabla, "m": max_id},
-        )
-    print(f"  {tabla}: OK (max id={max_id})")
+    # nota: no hace falta tocar sqlite_sequence a mano -- se probo que
+    # AUTOINCREMENT en Turso ya retoma solo desde MAX(id)+1 aunque esos
+    # ids se hayan insertado explicitos (no por autoincrement real).
+    print(f"  {tabla}: OK")
 
 
 def main():
@@ -56,12 +55,15 @@ def main():
         raise SystemExit("Faltan TURSO_DATABASE_URL / TURSO_AUTH_TOKEN en el entorno (.env)")
     turso_conn.executescript(db.SCHEMA)
 
-    print("Limpiando tablas en Turso (por si hay datos de prueba)...")
-    turso_conn.execute("DELETE FROM licitacion_ofertas")
-    turso_conn.execute("DELETE FROM licitacion_items")
-    turso_conn.execute("DELETE FROM licitaciones")
-
     for tabla in ("licitaciones", "licitacion_items", "licitacion_ofertas"):
+        local_n = local_conn.execute(f"SELECT COUNT(*) FROM {tabla}").fetchone()[0]
+        turso_n = turso_conn.execute(f"SELECT COUNT(*) c FROM {tabla}").fetchone()["c"]
+        if turso_n == local_n and local_n > 0:
+            print(f"  {tabla}: ya migrada ({turso_n} filas), se salta")
+            continue
+        if turso_n > 0:
+            print(f"  {tabla}: limpiando {turso_n} filas existentes antes de re-migrar...")
+            turso_conn.execute(f"DELETE FROM {tabla}")
         migrar_tabla(local_conn, turso_conn, tabla)
 
     local_conn.close()
