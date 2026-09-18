@@ -135,13 +135,17 @@ def _buscar():
     urgencia = request.args.get("urgencia", "").strip()
     apertura_desde = request.args.get("desde", "").strip()
     apertura_hasta = request.args.get("hasta", "").strip()
+    try:
+        pagina = max(1, int(request.args.get("pagina", "1")))
+    except ValueError:
+        pagina = 1
 
     conn = db.get_connection()
     where = []
     params = {}
 
     if q:
-        where.append("(base.titulo LIKE :q OR base.descripcion LIKE :q OR base.organismo LIKE :q)")
+        where.append("(base.titulo LIKE :q OR base.descripcion LIKE :q OR base.organismo LIKE :q OR base.numero_proceso LIKE :q)")
         params["q"] = f"%{q}%"
     if fuente:
         where.append("base.fuente = :fuente")
@@ -178,7 +182,7 @@ def _buscar():
         GROUP BY base.id
         {having_sql}
         ORDER BY {order_sql}
-        LIMIT {PAGE_SIZE}
+        LIMIT {PAGE_SIZE} OFFSET {(pagina - 1) * PAGE_SIZE}
     """
     rows = [dict(r) for r in conn.execute(query, params).fetchall()]
     for r in rows:
@@ -205,6 +209,8 @@ def _buscar():
     ).fetchall()}
     conn.close()
 
+    total_paginas = max(1, -(-total // PAGE_SIZE))  # ceil division
+
     return dict(
         rows=rows,
         total=total,
@@ -219,6 +225,8 @@ def _buscar():
         jurisdicciones=JURISDICCIONES,
         por_fuente=por_fuente,
         shown=len(rows),
+        pagina=pagina,
+        total_paginas=total_paginas,
     )
 
 
@@ -228,6 +236,24 @@ def index():
     if request.headers.get("X-Requested-With") == "fetch":
         return render_template("_resultados.html", **ctx)
     return render_template("index.html", **ctx)
+
+
+@app.route("/api/contar")
+def api_contar():
+    q = request.args.get("q", "").strip()
+    if not q:
+        return {"count": 0}
+    conn = db.get_connection()
+    count = conn.execute(
+        """
+        SELECT COUNT(*) c FROM licitaciones
+        WHERE estado IN ('Publicado', 'active')
+          AND (titulo LIKE :q OR descripcion LIKE :q OR organismo LIKE :q OR numero_proceso LIKE :q)
+        """,
+        {"q": f"%{q}%"},
+    ).fetchone()["c"]
+    conn.close()
+    return {"count": count}
 
 
 @app.route("/licitacion/<int:licitacion_id>")

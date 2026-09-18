@@ -30,13 +30,14 @@
   a{color:inherit;}
 
   /* ---------- top bar ---------- */
-  .topbar{background:linear-gradient(135deg,var(--brand-teal),var(--brand-teal-dark));color:#fff;padding:22px 24px;}
-  .topbar-inner{max-width:1240px;margin:0 auto;display:flex;align-items:center;gap:16px;}
-  .topbar img{height:40px;width:auto;display:block;}
+  .topbar{background:linear-gradient(135deg,var(--brand-teal),var(--brand-teal-dark));color:#fff;padding:18px 24px;}
+  .topbar-inner{max-width:1240px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;}
+  .topbar img{height:64px;width:auto;display:block;}
   .topbar h1{font-family:'Poppins',sans-serif;font-weight:800;font-size:clamp(24px,3.4vw,34px);letter-spacing:.02em;margin:0;text-transform:uppercase;}
   .topbar .tag{font-size:13px;color:rgba(255,255,255,.8);margin-top:2px;}
 
-  .page{max-width:1240px;margin:0 auto;padding:24px 24px 64px;}
+  .page{max-width:1240px;margin:0 auto;padding:24px 24px 64px;display:flex;gap:22px;align-items:flex-start;}
+  .main-col{flex:1;min-width:0;}
 
   /* ---------- pills ---------- */
   .pill{
@@ -106,10 +107,47 @@
   .pill-clear{background:none;border:1.5px dashed var(--border);color:var(--text-muted);}
   .pill-clear:hover{color:var(--text);border-color:var(--text-muted);}
 
+  /* ---------- pliego oficial link ---------- */
+  a.oficial{
+    display:inline-flex;align-items:center;gap:4px;flex-shrink:0;
+    font-family:ui-monospace,monospace;font-size:11px;font-weight:700;
+    padding:2px 8px;border-radius:5px;text-decoration:none;
+    background:var(--src-comprar-soft);color:var(--src-comprar);white-space:nowrap;
+  }
+  a.oficial:hover{background:var(--brand-teal);color:#fff;}
+
+  /* ---------- sidebar: palabras clave ---------- */
+  .sidebar{width:220px;flex-shrink:0;}
+  .kw-panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;box-shadow:var(--shadow);position:sticky;top:16px;}
+  .kw-title{font-family:'Poppins',sans-serif;font-weight:700;font-size:13.5px;margin-bottom:2px;}
+  .kw-sub{font-size:11.5px;color:var(--text-muted);margin-bottom:12px;}
+  .kw-add-row{display:flex;gap:6px;margin-bottom:12px;}
+  .kw-add-row input{flex:1;min-width:0;padding:7px 9px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;background:var(--surface);color:var(--text);}
+  .kw-add-row button{border:none;border-radius:7px;background:var(--brand-teal);color:#fff;font-weight:700;width:30px;flex-shrink:0;cursor:pointer;font-size:16px;line-height:1;}
+  .kw-add-row button:hover{background:var(--brand-teal-dark);}
+  .kw-list{display:flex;flex-direction:column;gap:6px;}
+  .kw-empty{font-size:12px;color:var(--text-muted);font-style:italic;}
+  .kw-chip{
+    display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:8px;
+    background:var(--surface-2);border:1.5px solid transparent;cursor:pointer;
+  }
+  .kw-chip:hover{border-color:var(--border);}
+  .kw-chip.active{border-color:var(--brand-teal);background:var(--src-comprar-soft);}
+  .kw-chip .kw-text{flex:1;min-width:0;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .kw-chip.active .kw-text{color:var(--brand-teal-dark);}
+  .kw-chip .kw-count{font-family:ui-monospace,monospace;font-size:11px;color:var(--text-muted);background:var(--surface);border-radius:999px;padding:1px 6px;flex-shrink:0;}
+  .kw-chip .kw-remove{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:14px;line-height:1;padding:0 2px;flex-shrink:0;}
+  .kw-chip .kw-remove:hover{color:var(--sem-red);}
+
+  /* ---------- pagination ---------- */
+  .pagination{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:18px;}
+  .pag-btn.disabled{opacity:.4;pointer-events:none;}
+  .pag-info{font-family:ui-monospace,monospace;font-size:12.5px;color:var(--text-muted);}
+
   /* ---------- modal ---------- */
   .modal-overlay{display:none;position:fixed;inset:0;background:rgba(10,25,20,.45);z-index:50;align-items:center;justify-content:center;padding:20px;}
   .modal-overlay.open{display:flex;}
-  .modal-box{background:var(--surface);border-radius:14px;max-width:480px;width:100%;padding:24px;box-shadow:0 20px 60px -12px rgba(0,0,0,.4);}
+  .modal-box{background:var(--surface);border-radius:14px;max-width:480px;width:100%;padding:24px;box-shadow:0 20px 60px -12px rgba(0,0,0,.4);max-height:80vh;overflow-y:auto;}
   .modal-box h3{margin:0 0 4px;font-family:'Poppins',sans-serif;font-size:18px;}
   .modal-box .sub{color:var(--text-muted);font-size:13px;margin:0 0 18px;}
   .jur-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
@@ -127,20 +165,34 @@
 
 <div class="topbar">
   <div class="topbar-inner">
-    <img src="{{ url_for('static', filename='logo-reverse.png') }}" alt="IcomSalud" style="height:34px;background:transparent;">
     <div>
       <h1>Radar de Licitaciones</h1>
       <button type="button" class="jur-link" id="abrir-jurisdicciones">Jurisdicciones adheridas ({{ jurisdicciones|length }}) →</button>
     </div>
+    <img src="{{ url_for('static', filename='logo-reverse.png') }}" alt="IcomSalud" style="background:transparent;">
   </div>
 </div>
 
 <div class="page">
 
+  <aside class="sidebar">
+    <div class="kw-panel">
+      <div class="kw-title">Palabras clave</div>
+      <div class="kw-sub">Guardá palabras y tocá una para filtrar por ella. El número es cuántas licitaciones vigentes la contienen.</div>
+      <div class="kw-add-row">
+        <input type="text" id="kw-input" placeholder="Ej: aguja">
+        <button type="button" id="kw-add-btn">+</button>
+      </div>
+      <div class="kw-list" id="kw-list"></div>
+    </div>
+  </aside>
+
+  <div class="main-col">
+
   <div class="filterbar">
     <form id="filtros" onsubmit="return false">
       <div class="row">
-        <input type="text" id="q" value="{{ q }}" placeholder="Buscar por título, descripción u organismo...">
+        <input type="text" id="q" value="{{ q }}" placeholder="Buscar por título, descripción, organismo o N° de proceso...">
       </div>
 
       <div class="row between">
@@ -158,7 +210,7 @@
 
       <div class="row between">
         <div class="row">
-          <span class="label-mini">Apertura</span>
+          <span class="label-mini">Fecha de apertura</span>
           <div class="pill-group">
             <a class="pill pill-rojo {{ 'active' if urgencia=='rojo' else '' }}" data-param="urgencia" data-value="rojo" href="{{ url_with(urgencia=(None if urgencia=='rojo' else 'rojo')) }}">● Urgente (&lt;48h)</a>
             <a class="pill pill-amarillo {{ 'active' if urgencia=='amarillo' else '' }}" data-param="urgencia" data-value="amarillo" href="{{ url_with(urgencia=(None if urgencia=='amarillo' else 'amarillo')) }}">● Pronto (&lt;7 días)</a>
@@ -167,7 +219,7 @@
         </div>
 
         <div class="row">
-          <span class="label-mini">Rápido</span>
+          <span class="label-mini">Fecha de apertura</span>
           <div class="pill-group">
             <a class="pill" data-preset="hoy" href="#">Hoy</a>
             <a class="pill" data-preset="manana" href="#">Mañana</a>
@@ -189,6 +241,8 @@
 
   <div id="resultados">
     {% include "_resultados.html" %}
+  </div>
+
   </div>
 </div>
 
@@ -225,6 +279,7 @@
   const qInput = document.getElementById('q');
   const desdeInput = document.getElementById('desde');
   const hastaInput = document.getElementById('hasta');
+  let currentPage = {{ pagina }};
 
   function currentParams(){
     const p = new URLSearchParams();
@@ -237,37 +292,45 @@
     if (urg) p.set('urgencia', urg.dataset.value);
     if (desdeInput.value) p.set('desde', desdeInput.value);
     if (hastaInput.value) p.set('hasta', hastaInput.value);
+    if (currentPage > 1) p.set('pagina', currentPage);
     return p;
   }
 
   let debounceTimer = null;
 
-  function aplicar(push){
+  function aplicar(push, opts){
+    opts = opts || {};
     const params = currentParams();
     const qs = params.toString();
     const url = qs ? ('/?' + qs) : '/';
     if (push) history.pushState({}, '', url);
     fetch(url, {headers: {'X-Requested-With': 'fetch'}})
       .then(r => r.text())
-      .then(html => { resultadosEl.innerHTML = html; })
+      .then(html => {
+        resultadosEl.innerHTML = html;
+        if (opts.scroll) resultadosEl.scrollIntoView({behavior: 'smooth', block: 'start'});
+      })
       .catch(() => {});
     sincronizarPresets();
+    sincronizarPalabrasClave();
   }
 
   qInput.addEventListener('input', () => {
+    currentPage = 1;
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => aplicar(true), 350);
   });
   qInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); clearTimeout(debounceTimer); aplicar(true); }
+    if (e.key === 'Enter') { e.preventDefault(); currentPage = 1; clearTimeout(debounceTimer); aplicar(true); }
   });
 
-  desdeInput.addEventListener('change', () => aplicar(true));
-  hastaInput.addEventListener('change', () => aplicar(true));
+  desdeInput.addEventListener('change', () => { currentPage = 1; aplicar(true); });
+  hastaInput.addEventListener('change', () => { currentPage = 1; aplicar(true); });
 
   document.querySelectorAll('.pill[data-param]').forEach(pill => {
     pill.addEventListener('click', e => {
       e.preventDefault();
+      currentPage = 1;
       const param = pill.dataset.param;
       if (pill.dataset.bool === '1') {
         pill.classList.toggle('active');
@@ -278,6 +341,14 @@
       }
       aplicar(true);
     });
+  });
+
+  resultadosEl.addEventListener('click', e => {
+    const btn = e.target.closest('.pag-btn');
+    if (!btn || btn.classList.contains('disabled')) return;
+    e.preventDefault();
+    currentPage = parseInt(btn.dataset.page, 10) || 1;
+    aplicar(true, {scroll: true});
   });
 
   function isoDate(d){ return d.toISOString().slice(0, 10); }
@@ -293,6 +364,7 @@
   document.querySelectorAll('.pill[data-preset]').forEach(btn => {
     btn.addEventListener('click', e => {
       e.preventDefault();
+      currentPage = 1;
       const [d, h] = presets[btn.dataset.preset]();
       desdeInput.value = d; hastaInput.value = h;
       aplicar(true);
@@ -309,6 +381,7 @@
 
   document.getElementById('borrar-fechas').addEventListener('click', e => {
     e.preventDefault();
+    currentPage = 1;
     desdeInput.value = ''; hastaInput.value = '';
     aplicar(true);
   });
@@ -319,6 +392,84 @@
   document.getElementById('abrir-jurisdicciones').addEventListener('click', () => modal.classList.add('open'));
   document.getElementById('cerrar-jurisdicciones').addEventListener('click', () => modal.classList.remove('open'));
   modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
+
+  /* ---------- palabras clave (panel lateral) ---------- */
+  const KW_KEY = 'radar_palabras_clave';
+  const kwList = document.getElementById('kw-list');
+  const kwInput = document.getElementById('kw-input');
+  const kwAddBtn = document.getElementById('kw-add-btn');
+
+  function kwCargar(){
+    try { return JSON.parse(localStorage.getItem(KW_KEY)) || []; }
+    catch (e) { return []; }
+  }
+  function kwGuardar(palabras){
+    try { localStorage.setItem(KW_KEY, JSON.stringify(palabras)); } catch (e) {}
+  }
+
+  function kwRenderizar(){
+    const palabras = kwCargar();
+    kwList.innerHTML = '';
+    if (!palabras.length) {
+      kwList.innerHTML = '<div class="kw-empty">Todavía no agregaste ninguna.</div>';
+      return;
+    }
+    palabras.forEach(palabra => {
+      const chip = document.createElement('div');
+      chip.className = 'kw-chip';
+      chip.dataset.word = palabra;
+      if (qInput.value.trim().toLowerCase() === palabra.toLowerCase()) chip.classList.add('active');
+      chip.innerHTML = `<span class="kw-text"></span><span class="kw-count">…</span><button type="button" class="kw-remove" title="Quitar">×</button>`;
+      chip.querySelector('.kw-text').textContent = palabra;
+      kwList.appendChild(chip);
+      kwContar(palabra, chip.querySelector('.kw-count'));
+    });
+  }
+
+  function kwContar(palabra, el){
+    fetch('/api/contar?q=' + encodeURIComponent(palabra))
+      .then(r => r.json())
+      .then(data => { el.textContent = data.count; })
+      .catch(() => { el.textContent = '—'; });
+  }
+
+  function sincronizarPalabrasClave(){
+    document.querySelectorAll('.kw-chip').forEach(chip => {
+      chip.classList.toggle('active', qInput.value.trim().toLowerCase() === chip.dataset.word.toLowerCase());
+    });
+  }
+
+  function kwAgregar(){
+    const palabra = kwInput.value.trim();
+    if (!palabra) return;
+    const palabras = kwCargar();
+    if (!palabras.some(p => p.toLowerCase() === palabra.toLowerCase())) {
+      palabras.push(palabra);
+      kwGuardar(palabras);
+      kwRenderizar();
+    }
+    kwInput.value = '';
+  }
+
+  kwAddBtn.addEventListener('click', kwAgregar);
+  kwInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); kwAgregar(); } });
+
+  kwList.addEventListener('click', e => {
+    const removeBtn = e.target.closest('.kw-remove');
+    const chip = e.target.closest('.kw-chip');
+    if (!chip) return;
+    if (removeBtn) {
+      const palabras = kwCargar().filter(p => p.toLowerCase() !== chip.dataset.word.toLowerCase());
+      kwGuardar(palabras);
+      kwRenderizar();
+      return;
+    }
+    currentPage = 1;
+    qInput.value = chip.dataset.word;
+    aplicar(true);
+  });
+
+  kwRenderizar();
 })();
 </script>
 </body>

@@ -30,8 +30,8 @@
   .pill-muni{background:var(--src-muni-soft);color:var(--src-muni);}
   h1{font-size:24px;margin:14px 0 4px;text-wrap:balance;}
   .meta{color:var(--text-muted);font-size:14px;margin-bottom:6px;}
-  a.oficial{display:inline-block;margin-bottom:20px;font-size:13.5px;font-weight:600;color:var(--brand-teal);text-decoration:none;}
-  a.oficial:hover{text-decoration:underline;}
+  a.oficial{display:inline-flex;align-items:center;gap:6px;margin-bottom:20px;padding:10px 18px;border-radius:8px;font-size:14px;font-weight:700;color:#fff;background:var(--brand-teal);text-decoration:none;}
+  a.oficial:hover{background:var(--brand-teal-dark);}
   .fields{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:28px;}
   .field{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;}
   .field .k{font-family:ui-monospace,monospace;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-bottom:4px;}
@@ -58,7 +58,7 @@
   <div style="margin-top:14px;"><span class="badge-fuente pill-{{ fuente_clase(lic.fuente) }}">{{ lic.fuente }}</span></div>
   <h1>{{ lic.titulo or '(sin título)' }}</h1>
   <p class="meta">{{ lic.numero_proceso }} · {{ lic.organismo or 'organismo no informado' }} · {{ lic.jurisdiccion }}</p>
-  {% if lic.url %}<a class="oficial" href="{{ lic.url }}" target="_blank" rel="noopener">Ver en el portal oficial ↗</a>{% endif %}
+  {% if lic.url %}<a class="oficial" href="{{ lic.url }}" target="_blank" rel="noopener">Ver pliego / portal oficial ↗</a>{% else %}<p class="meta" style="margin-bottom:20px;">Sin link oficial disponible todavía para esta fuente.</p>{% endif %}
 
   {% if lic.descripcion %}<p class="desc">{{ lic.descripcion }}</p>{% endif %}
 

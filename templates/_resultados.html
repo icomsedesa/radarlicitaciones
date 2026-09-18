@@ -19,7 +19,7 @@
         <td>
           <div class="titulo-wrap">
             <a class="titulo" href="{{ url_for('detalle', licitacion_id=r.id) }}">{{ r.titulo or '(sin título)' }}</a>
-            {% if r.url %}<a class="oficial" href="{{ r.url }}" target="_blank" rel="noopener" title="Ver en el portal oficial">↗</a>{% endif %}
+            {% if r.url %}<a class="oficial" href="{{ r.url }}" target="_blank" rel="noopener" title="Ver pliego / portal oficial">Pliego ↗</a>{% endif %}
           </div>
           {% if r.n_renglones > 0 %}<span class="badge-renglones">{{ r.n_renglones }} {{ 'renglones' if r.n_renglones != 1 else 'renglón' }}</span>{% endif %}
         </td>
@@ -38,3 +38,11 @@
     <div class="empty">Sin resultados para esta búsqueda.</div>
   {% endif %}
 </div>
+
+{% if total_paginas > 1 %}
+<div class="pagination">
+  <a class="pill pag-btn {{ 'disabled' if pagina <= 1 else '' }}" data-page="{{ pagina - 1 }}" href="#">‹ Anterior</a>
+  <span class="pag-info">Página {{ pagina }} de {{ total_paginas }}</span>
+  <a class="pill pag-btn {{ 'disabled' if pagina >= total_paginas else '' }}" data-page="{{ pagina + 1 }}" href="#">Siguiente ›</a>
+</div>
+{% endif %}
