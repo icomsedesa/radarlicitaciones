@@ -84,6 +84,24 @@ def run(comprar_limit=None, bac_limit=None, pbac_pages=5, municipios=True):
     print(f"  {n} filas cargadas")
     total += n
 
+    print("== PAMI (UGL, 38 unidades en todo el país) ==")
+    try:
+        rows = pami.fetch_ugl()
+        n = db.upsert_many(conn, rows)
+        print(f"  {n} filas cargadas")
+        total += n
+    except Exception as e:
+        print(f"  ! error: {e}")
+
+    print("== PAMI (Efectores Sanitarios Propios) ==")
+    try:
+        rows = pami.fetch_efectores()
+        n = db.upsert_many(conn, rows)
+        print(f"  {n} filas cargadas")
+        total += n
+    except Exception as e:
+        print(f"  ! error: {e}")
+
     print("== PAMI (comparativas: actas de apertura) ==")
     try:
         # historico mas amplio que el listado de vigentes -- si el proceso

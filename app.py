@@ -38,6 +38,8 @@ FUENTES = [
     ("mendoza", "Mendoza (Provincia)"),
     ("mendoza_osep", "Mendoza (OSEP)"),
     ("pami", "PAMI"),
+    ("pami_ugl", "PAMI (UGL)"),
+    ("pami_efectores", "PAMI (Efectores)"),
     ("muni_san_miguel", "San Miguel"),
     ("muni_la_matanza", "La Matanza"),
     ("muni_campana", "Campana"),
@@ -71,6 +73,8 @@ JURISDICCIONES = [
     ("mendoza", "Mendoza", "Provincia de Mendoza y dependencias (hospitales, ministerios, áreas de salud)"),
     ("mendoza_osep", "Mendoza (OSEP)", "Obra Social de Empleados Públicos de Mendoza — insumos médicos"),
     ("pami", "PAMI", "INSSJP — Nivel Central. Incluye comparativas públicas (Actas de Apertura con todas las ofertas recibidas)"),
+    ("pami_ugl", "PAMI (UGL)", "INSSJP — 38 Unidades de Gestión Local en todo el país"),
+    ("pami_efectores", "PAMI (Efectores)", "INSSJP — Gerencia de Efectores Sanitarios Propios (hospitales operados directamente por PAMI)"),
     ("muni_san_miguel", "San Miguel", "Municipio (GBA norte)"),
     ("muni_la_matanza", "La Matanza", "Municipio (GBA oeste)"),
     ("muni_campana", "Campana", "Municipio (GBA norte, vía SIBOM)"),
@@ -123,7 +127,7 @@ app.jinja_env.globals["url_with"] = _url_with
 def _fuente_clase(fuente: str) -> str:
     if fuente.startswith("mendoza"):
         return "mendoza"
-    if fuente == "pami":
+    if fuente.startswith("pami"):
         return "pami"
     if fuente in ("comprar_ar", "bac", "pbac"):
         return fuente.replace("_ar", "")
@@ -167,18 +171,19 @@ def _buscar():
     apertura_desde = request.args.get("desde", "").strip()
     apertura_hasta = request.args.get("hasta", "").strip()
     mostrar_historial = request.args.get("historial", "") == "1"
+    vista = "renglones" if request.args.get("vista") == "renglones" else "documentos"
     try:
         pagina = max(1, int(request.args.get("pagina", "1")))
     except ValueError:
         pagina = 1
 
     conn = db.get_connection()
+
+    # filtros a nivel del proceso -- se aplican igual en las dos vistas
+    # (documentos y renglones), porque un renglon "pertenece" al proceso
+    # que lo trae (fuente, apertura, urgencia, etc. son del proceso).
     where = []
     params = {}
-
-    if q:
-        where.append("(base.titulo LIKE :q OR base.descripcion LIKE :q OR base.organismo LIKE :q OR base.numero_proceso LIKE :q)")
-        params["q"] = f"%{q}%"
     if fuente:
         where.append("base.fuente = :fuente")
         params["fuente"] = fuente
@@ -194,13 +199,11 @@ def _buscar():
         where.append("date(base.fecha_apertura) <= :hasta")
         params["hasta"] = apertura_hasta
     if not mostrar_historial:
-        # por defecto solo se muestran licitaciones con apertura futura --
-        # las cerradas y las que no tienen fecha cargada quedan afuera
-        # salvo que el usuario pida ver el historial completo.
+        # por defecto solo se muestran procesos con apertura futura -- los
+        # cerrados y los que no tienen fecha cargada quedan afuera salvo
+        # que el usuario pida ver el historial completo.
         where.append("base.urgencia IN ('rojo', 'amarillo', 'verde')")
 
-    where_sql = f"WHERE {' AND '.join(where)}" if where else ""
-    having_sql = "HAVING COUNT(i.id) > 0" if solo_con_renglones else ""
     # con apertura futura primero (mas proxima primero), despues el resto.
     # OJO: "estado" no sirve como criterio aca -- su significado varia por
     # fuente (el "active" de BAC no implica que siga vigente para ofertar,
@@ -208,39 +211,93 @@ def _buscar():
     # comparable entre las tres fuentes.
     order_sql = "CASE WHEN base.urgencia IN ('rojo','amarillo','verde') THEN 0 ELSE 1 END, base.fecha_apertura ASC"
 
-    query = f"""
-        WITH base AS (
-            SELECT *, {URGENCIA_CASE} AS urgencia FROM licitaciones
-        )
-        SELECT base.*, COUNT(i.id) AS n_renglones
-        FROM base
-        LEFT JOIN licitacion_items i ON i.licitacion_id = base.id
-        {where_sql}
-        GROUP BY base.id
-        {having_sql}
-        ORDER BY {order_sql}
-        LIMIT {PAGE_SIZE} OFFSET {(pagina - 1) * PAGE_SIZE}
-    """
-    rows = [dict(r) for r in conn.execute(query, params).fetchall()]
-    for r in rows:
-        r["faltan"] = _texto_faltante(r["fecha_apertura"], r["urgencia"])
+    if vista == "renglones":
+        # en esta vista lo que importa es el renglon (el articulo puntual
+        # que se puede o no ofertar) -- el texto libre busca en el propio
+        # renglon (descripcion/codigo) o por numero de proceso exacto, no
+        # en el titulo/organismo del proceso (que traeria renglones sin
+        # relacion real con la busqueda).
+        where_renglon = list(where)
+        if q:
+            where_renglon.append("(i.descripcion LIKE :q OR i.codigo_item LIKE :q OR base.numero_proceso LIKE :q)")
+            params["q"] = f"%{q}%"
+        where_sql = f"WHERE {' AND '.join(where_renglon)}" if where_renglon else ""
 
-    total = conn.execute(
-        f"""
-        WITH base AS (
-            SELECT *, {URGENCIA_CASE} AS urgencia FROM licitaciones
-        )
-        SELECT COUNT(*) c FROM (
-            SELECT base.id
+        query = f"""
+            WITH base AS (
+                SELECT *, {URGENCIA_CASE} AS urgencia FROM licitaciones
+            )
+            SELECT
+                i.id AS item_id, i.numero_renglon, i.codigo_item,
+                i.descripcion AS item_descripcion, i.cantidad, i.unidad,
+                i.clasificacion,
+                base.id, base.fuente, base.numero_proceso, base.titulo,
+                base.organismo, base.fecha_apertura, base.urgencia,
+                base.estado, base.url
+            FROM licitacion_items i
+            JOIN base ON base.id = i.licitacion_id
+            {where_sql}
+            ORDER BY {order_sql}
+            LIMIT {PAGE_SIZE} OFFSET {(pagina - 1) * PAGE_SIZE}
+        """
+        rows = [dict(r) for r in conn.execute(query, params).fetchall()]
+        for r in rows:
+            r["faltan"] = _texto_faltante(r["fecha_apertura"], r["urgencia"])
+
+        total = conn.execute(
+            f"""
+            WITH base AS (
+                SELECT *, {URGENCIA_CASE} AS urgencia FROM licitaciones
+            )
+            SELECT COUNT(*) c
+            FROM licitacion_items i
+            JOIN base ON base.id = i.licitacion_id
+            {where_sql}
+            """,
+            params,
+        ).fetchone()["c"]
+    else:
+        where_doc = list(where)
+        if q:
+            where_doc.append("(base.titulo LIKE :q OR base.descripcion LIKE :q OR base.organismo LIKE :q OR base.numero_proceso LIKE :q)")
+            params["q"] = f"%{q}%"
+        where_sql = f"WHERE {' AND '.join(where_doc)}" if where_doc else ""
+        having_sql = "HAVING COUNT(i.id) > 0" if solo_con_renglones else ""
+
+        query = f"""
+            WITH base AS (
+                SELECT *, {URGENCIA_CASE} AS urgencia FROM licitaciones
+            )
+            SELECT base.*, COUNT(i.id) AS n_renglones
             FROM base
             LEFT JOIN licitacion_items i ON i.licitacion_id = base.id
             {where_sql}
             GROUP BY base.id
             {having_sql}
-        )
-        """,
-        params,
-    ).fetchone()["c"]
+            ORDER BY {order_sql}
+            LIMIT {PAGE_SIZE} OFFSET {(pagina - 1) * PAGE_SIZE}
+        """
+        rows = [dict(r) for r in conn.execute(query, params).fetchall()]
+        for r in rows:
+            r["faltan"] = _texto_faltante(r["fecha_apertura"], r["urgencia"])
+
+        total = conn.execute(
+            f"""
+            WITH base AS (
+                SELECT *, {URGENCIA_CASE} AS urgencia FROM licitaciones
+            )
+            SELECT COUNT(*) c FROM (
+                SELECT base.id
+                FROM base
+                LEFT JOIN licitacion_items i ON i.licitacion_id = base.id
+                {where_sql}
+                GROUP BY base.id
+                {having_sql}
+            )
+            """,
+            params,
+        ).fetchone()["c"]
+
     por_fuente = {r["fuente"]: r["c"] for r in conn.execute(
         "SELECT fuente, COUNT(*) c FROM licitaciones GROUP BY fuente"
     ).fetchall()}
@@ -259,6 +316,7 @@ def _buscar():
         apertura_desde=apertura_desde,
         apertura_hasta=apertura_hasta,
         mostrar_historial=mostrar_historial,
+        vista=vista,
         fuentes=FUENTES,
         jurisdicciones=JURISDICCIONES,
         por_fuente=por_fuente,

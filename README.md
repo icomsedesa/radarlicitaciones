@@ -12,6 +12,8 @@ PoC del buscador propio de licitaciones públicas argentinas (alternativa a Falc
 | Mendoza (Provincia) | Provincia de Mendoza y dependencias (ministerios, hospitales, áreas dptales. de salud, Poder Judicial) | Dataset OCDS 1.1 abierto (histórico, con adjudicaciones) + buscador en vivo (Playwright, vigentes) | Sí, incluidos en el dataset histórico (11.412 renglones) |
 | Mendoza (OSEP) | Provincia de Mendoza — Obra Social de Empleados Públicos | Buscador en vivo (Playwright) | No |
 | PAMI | Nación — INSSJP, Nivel Central | HTML estático (sin login) + **Actas de Apertura públicas con todas las ofertas recibidas** | No (pero sí trae comparativas — ver abajo) |
+| PAMI (UGL) | Nación — INSSJP, 38 Unidades de Gestión Local (todo el país) | Buscador AJAX propio (`includes/compras.php`, POST simple, sin Playwright) | No |
+| PAMI (Efectores) | Nación — INSSJP, Gerencia de Efectores Sanitarios Propios (hospitales operados por PAMI) | Igual buscador AJAX que UGL | No |
 | Muni San Miguel | GBA norte | HTML propio (`/pliegos/`) + PDFs | No (fecha de apertura y expediente solo están dentro de los PDF, sin parsear todavía) |
 | Muni La Matanza | GBA oeste | Boletín Municipal mensual en PDF (texto real) | No |
 | Muni Campana | GBA norte | SIBOM (boletín oficial provincial compartido) | No |
@@ -47,6 +49,8 @@ Nueva tabla `licitacion_ofertas` (independiente de `licitacion_items`/renglones)
 
 **COMPR.AR nacional NO expone lo mismo sin login.** Se verificó: la página pública de un proceso adjudicado (`VistaPreviaPliegoCiudadano.aspx`) solo muestra el "Documento contractual por proveedor" (la adjudicataria, dato que igual ya se tiene vía `Adjudicaciones.csv`) — no hay una sección tipo "Acta de Apertura" con todas las ofertas. Para ver las ofertas perdedoras hace falta la cuenta de proveedor logueada, como originalmente se planteó.
 
+**PAMI tiene tres organizaciones de compras independientes**, cada una con su propio buscador: **Nivel Central** (HTML estático, la que ya tenía Actas de Apertura públicas), **UGL** (38 Unidades de Gestión Local — una por provincia/región, cubren todo el país) y **Gerencia de Efectores Sanitarios Propios** (los hospitales que PAMI opera directamente). UGL y Efectores comparten un buscador AJAX propio (`includes/compras.php`, POST simple con `par=2`/`par=3` — no hace falta Playwright) que devuelve **todos** los resultados en una sola respuesta, sin paginar (1062 procesos "en curso" en UGL al conectarlo). Dos particularidades: (1) el servidor no declara charset en el header, así que hay que forzar `resp.encoding = "utf-8"` o `requests` asume ISO-8859-1 y rompe los acentos; (2) el HTML de la grilla tiene un `<tr>` roto (una apertura sin cierre, duplicada) justo antes de la primera fila de datos, que descoloca el árbol de `BeautifulSoup` — se resolvió con regex directo sobre las celdas en vez de confiar en el parseo de filas. UGL y Efectores no tienen "Actas de Apertura" propio como Nivel Central — no se pudo confirmar comparativas públicas ahí todavía.
+
 ### Credenciales de portales (COMPR.AR/BAC) — arquitectura de seguridad
 
 Para poder automatizar el login a COMPR.AR/BAC sin que las contraseñas queden en el código ni pasen por acá:
@@ -62,6 +66,12 @@ Pendiente (siguiente paso): el conector que efectivamente use estas credenciales
 Marca IcomSalud aplicada (`static/`: logo, isotipo/favicon, colores). Fuentes, "Con renglones" y "Vigentes hoy" son pastillas-filtro (no dropdown/checkbox); cada fuente tiene su color y se repite igual en la columna Fuente de la tabla. Columna "Faltan" con semáforo rojo/amarillo/verde/gris según cuánto falta para la apertura (`app.py:_texto_faltante`), con pastillas para filtrar por ese bucket y filtros de fecha desde/hasta. El link "↗" junto al título va al portal oficial cuando se conoce (BAC siempre; COMPR.AR solo en los procesos ya procesados por `backfill_items`, que captura la URL real al scrapear los renglones; PBAC no tiene URL de detalle sin sesión, así que linkea al listado general).
 
 Pendiente conocido: los renglones de COMPR.AR cargados en la primera corrida de `backfill_items` (antes de que capturara la URL) no tienen link oficial — se completa solo, corriendo `backfill_items` de nuevo, con procesos nuevos.
+
+**Terminología**: lo que se ve en la tabla son **procesos** (licitaciones, concursos de precios, compulsas, etc.) — todos los conteos (pastillas, "Mostrando X de Y", palabras clave) se refieren a procesos. Distinto son los **renglones**: los artículos/ítems puntuales dentro de un proceso, que es en definitiva lo que importa para decidir si ofertar o no.
+
+**Toggle Documentos / Renglones** (arriba del buscador, junto al campo de texto): cambia la vista completa, no solo una columna.
+- **Documentos** (por defecto): una fila por proceso, como hasta ahora.
+- **Renglones**: una fila por renglón (`app.py:_buscar`, join con `licitacion_items`). La búsqueda de texto en esta vista busca en la descripción/código del renglón (y en el N° de proceso), no en el título del proceso — para encontrar el artículo puntual aunque el proceso tenga un título genérico ("Adquisición de insumos varios") que no lo mencione. El contador "Mostrando X de Y" pasa a contar renglones. El pill "Con renglones" no aplica acá (cada fila ya es un renglón) y se oculta dinámicamente.
 
 ## Hallazgos importantes del recorrido (para no repetir la investigación)
 
@@ -132,4 +142,4 @@ Abre http://localhost:5000. Para habilitar `/configuracion` (credenciales de por
 
 ## Estado
 
-Prueba de concepto (Fase 1-2 del plan, más una primera expansión fuera del alcance original): ingesta, normalización, búsqueda y comparativas funcionando de punta a punta con datos reales. **28 fuentes conectadas**: Nación (COMPR.AR), CABA (BAC), Provincia de Buenos Aires (PBAC), Provincia de Mendoza (+ OSEP), PAMI (Nación, con comparativas públicas), y 22 municipios del Gran Buenos Aires + interior bonaerense. Todavía no tiene: alertas, deduplicación entre fuentes, el conector autenticado a COMPR.AR/BAC para comparativas completas (ver sección "Comparativas" arriba — la infraestructura de credenciales ya está, falta el scraper en sí), ni el barrido del interior de Mendoza/Buenos Aires más allá de lo ya conectado.
+Prueba de concepto (Fase 1-2 del plan, más una primera expansión fuera del alcance original): ingesta, normalización, búsqueda (por proceso y por renglón) y comparativas funcionando de punta a punta con datos reales. **30 fuentes conectadas**: Nación (COMPR.AR), CABA (BAC), Provincia de Buenos Aires (PBAC), Provincia de Mendoza (+ OSEP), PAMI (Nivel Central + UGL + Efectores Sanitarios Propios, con comparativas públicas), y 22 municipios del Gran Buenos Aires + interior bonaerense. Todavía no tiene: alertas, deduplicación entre fuentes, el conector autenticado a COMPR.AR/BAC para comparativas completas (ver sección "Comparativas" arriba — la infraestructura de credenciales ya está, falta el scraper en sí), ni el barrido del interior de Mendoza/Buenos Aires ni de las demás UGL/agencias de PAMI más allá de lo ya conectado.

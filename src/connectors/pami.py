@@ -1,22 +1,33 @@
-"""PAMI (INSSJP) -- Nivel Central.
+"""PAMI (INSSJP) -- Nivel Central + UGL + Gerencia de Efectores Sanitarios
+Propios.
 
 Fuente: prestadores.pami.org.ar, HTML estatico clasico (paginas .php sin
-JS), sin login. Dos secciones usadas:
+JS), sin login.
 
-  1. Listado de licitaciones vigentes (`result.php?c=7-1-1-1`): cada
-     entrada trae tipo+numero, objeto, expediente, destino, fecha de
-     apertura y un link directo al PDF del pliego.
-  2. **Actas de Apertura** (`result.php?c=7-1-3&par=1`): PUBLICA, sin
-     login, el detalle de TODAS las ofertas recibidas por proceso (razon
-     social, CUIT, fecha de recepcion, precio cotizado) -- exactamente el
-     dato de "comparativas" que en COMPR.AR/BAC solo se ve con cuenta de
-     proveedor logueada. El PDF del acta tiene URL predecible a partir del
-     numero de expediente: `compraselectronicas.pami.org.ar/uploads_actas/
-     AA-{expediente}.pdf`.
+  1. Listado de licitaciones vigentes de Nivel Central (`result.php?
+     c=7-1-1-1`): cada entrada trae tipo+numero, objeto, expediente,
+     destino, fecha de apertura y un link directo al PDF del pliego.
+  2. **Actas de Apertura** de Nivel Central (`result.php?c=7-1-3&par=1`):
+     PUBLICA, sin login, el detalle de TODAS las ofertas recibidas por
+     proceso (razon social, CUIT, fecha de recepcion, precio cotizado) --
+     exactamente el dato de "comparativas" que en COMPR.AR/BAC solo se ve
+     con cuenta de proveedor logueada. El PDF del acta tiene URL
+     predecible a partir del numero de expediente:
+     `compraselectronicas.pami.org.ar/uploads_actas/AA-{expediente}.pdf`.
+  3. **UGL** (Unidades de Gestion Local, `par=2`) y **Gerencia de
+     Efectores Sanitarios Propios** (hospitales propios de PAMI, `par=3`):
+     tienen su propio buscador AJAX (`includes/compras.php`, POST simple,
+     sin Playwright) -- devuelve TODOS los resultados en una sola
+     respuesta (sin paginar). Hay 38 UGL cubriendo todo el pais; con
+     estado_compra=1 ("en curso") ya trae ~1000 procesos activos. Importante:
+     el servidor no declara charset en el header (`Content-Type: text/html`
+     a secas) pero el body es UTF-8 -- hay que forzar `resp.encoding =
+     "utf-8"` o requests lo interpreta mal (asume ISO-8859-1 por default
+     ante la ausencia de charset).
 
-Alcance actual: solo "Nivel Central" (par=1). PAMI tambien publica compras
-de sus Unidades de Gestion Local (UGL) -- no relevado todavia, ver
-`par=2`/`par=3` u otros valores en el menu "Agencias / UGL".
+     Este buscador no tiene "Actas de Apertura" propio como Nivel Central
+     -- no se pudo confirmar comparativas publicas para UGL/Efectores
+     todavia.
 """
 import io
 import re
@@ -27,6 +38,7 @@ import requests
 LISTADO_URL = "https://prestadores.pami.org.ar/result.php?c=7-1-1-1"
 ACTAS_URL = "https://prestadores.pami.org.ar/result.php?c=7-1-3&par=1"
 ACTA_PDF_BASE = "https://compraselectronicas.pami.org.ar/uploads_actas/AA-{expediente}.pdf"
+COMPRAS_AJAX_URL = "https://prestadores.pami.org.ar/includes/compras.php"
 
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; RadarLicitaciones/0.1; uso interno)"}
 
@@ -103,6 +115,81 @@ def fetch() -> list[dict]:
             }
         )
     return rows
+
+
+RE_FILA_COMPRAS = re.compile(
+    r'<td class="center">(\d+/\d{2})</td><td class="center">([^<]*)</td>'
+    r'<td class="center">([^<]*)</td><td class="center">([^<]*)</td>'
+    r'<td class="justify">(.*?)</td>'
+    r'<td class="center">(\d{1,2}/\d{1,2}/\d{4} \d{2}:\d{2}:\d{2})</td>'
+    r'<td class="center"><i[^>]*onClick="verArchivos\(\'(\d+)\'\)',
+    re.DOTALL,
+)
+
+
+def _parse_fecha_compras(texto: str):
+    from datetime import datetime
+    try:
+        return datetime.strptime(texto, "%d/%m/%Y %H:%M:%S").isoformat()
+    except ValueError:
+        return None
+
+
+def _fetch_compras_ajax(par: str, fuente: str, jurisdiccion: str, estado_compra: str = "1") -> list[dict]:
+    """`par`: "2" = UGL, "3" = Gerencia de Efectores Sanitarios Propios.
+    `estado_compra`: "1" = en curso (no requiere fechas), "2" = finalizadas
+    (requeriria fecha_ant/fecha_post, no se usa aca)."""
+    resp = requests.post(
+        COMPRAS_AJAX_URL,
+        data={
+            "accion": "search()", "tipo_compra": "0", "destino_compra": "0",
+            "num_compra": "", "desc_compra": "", "fecha_ant": "", "fecha_post": "",
+            "estado_compra": estado_compra, "par": par,
+        },
+        headers=HEADERS, timeout=60,
+    )
+    resp.raise_for_status()
+    resp.encoding = "utf-8"  # el servidor no declara charset -- sin esto requests asume ISO-8859-1
+
+    rows = []
+    for m in RE_FILA_COMPRAS.finditer(resp.text):
+        numero, tipo, destino, expediente, detalle, fecha_txt, id_compra = m.groups()
+        tipo = _limpiar_html(tipo).strip()
+        destino = _limpiar_html(destino).strip()
+        expediente = _limpiar_html(expediente).strip()
+        objeto = re.sub(r"\s+", " ", _limpiar_html(detalle)).strip()
+        numero_proceso = f"{numero}-{id_compra}"
+        rows.append({
+            "fuente": fuente,
+            "numero_proceso": numero_proceso,
+            "titulo": f"{tipo} {numero} — {objeto}"[:250] if objeto else f"{tipo} {numero}",
+            "descripcion": objeto,
+            "organismo": f"PAMI — {destino}",
+            "jurisdiccion": jurisdiccion,
+            "tipo_procedimiento": tipo,
+            "fecha_publicacion": None,
+            "fecha_apertura": _parse_fecha_compras(fecha_txt),
+            "monto_estimado": None,
+            "moneda": "ARS",
+            "estado": None,
+            "proveedor_adjudicado": None,
+            "monto_adjudicado": None,
+            "url": "https://prestadores.pami.org.ar/result.php?c=7-5&par=" + par,
+            "expediente": expediente,
+        })
+    return rows
+
+
+def fetch_ugl() -> list[dict]:
+    """Compras "en curso" de las 38 Unidades de Gestion Local (todo el
+    pais), via el buscador AJAX -- sin Playwright, un solo POST."""
+    return _fetch_compras_ajax(par="2", fuente="pami_ugl", jurisdiccion="PAMI (UGL)")
+
+
+def fetch_efectores() -> list[dict]:
+    """Compras "en curso" de la Gerencia de Efectores Sanitarios Propios
+    (hospitales/centros que PAMI opera directamente)."""
+    return _fetch_compras_ajax(par="3", fuente="pami_efectores", jurisdiccion="PAMI (Efectores Sanitarios Propios)")
 
 
 RE_ACTA_ENTRADA = re.compile(

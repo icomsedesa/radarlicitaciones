@@ -1,9 +1,39 @@
 <p class="muted" style="margin:-8px 0 14px;font-size:13px;">
-  Mostrando {{ shown }} de {{ total }} resultados
+  Mostrando {{ shown }} de {{ total }} {{ 'renglones' if vista == 'renglones' else 'procesos' }}
 </p>
 
 <div class="table-wrap">
   {% if rows %}
+  {% if vista == 'renglones' %}
+  <table>
+    <thead>
+      <tr>
+        <th>Fuente</th><th>N° proceso</th><th>Renglón</th><th>Cantidad</th><th>Unidad</th>
+        <th>Rubro</th><th>Organismo</th><th>Apertura</th><th>Faltan</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td><span class="badge-fuente pill-{{ fuente_clase(r.fuente) }}">{{ r.fuente }}</span></td>
+        <td>
+          <div class="titulo-wrap">
+            <a class="titulo" href="{{ url_for('detalle', licitacion_id=r.id) }}">{{ r.numero_proceso }}</a>
+            {% if r.url %}<a class="oficial" href="{{ r.url }}" target="_blank" rel="noopener" title="Ver pliego / portal oficial">Pliego ↗</a>{% endif %}
+          </div>
+        </td>
+        <td>{{ r.item_descripcion or '—' }}{% if r.numero_renglon %}<div class="muted" style="font-size:11.5px;margin-top:2px;">N° {{ r.numero_renglon }}</div>{% endif %}</td>
+        <td>{{ r.cantidad if r.cantidad is not none else '—' }}</td>
+        <td>{{ r.unidad or '—' }}</td>
+        <td>{{ r.clasificacion or '—' }}</td>
+        <td>{{ r.organismo or '—' }}</td>
+        <td>{{ r.fecha_apertura[:16].replace('T',' ') if r.fecha_apertura else '—' }}</td>
+        <td>{% if r.faltan %}<span class="faltan {{ r.urgencia }}">{{ r.faltan }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
   <table>
     <thead>
       <tr>
@@ -34,8 +64,12 @@
       {% endfor %}
     </tbody>
   </table>
+  {% endif %}
   {% else %}
-    <div class="empty">Sin resultados para esta búsqueda.</div>
+    <div class="empty">
+      Sin resultados para esta búsqueda.
+      {% if vista == 'renglones' %}Puede que estos procesos todavía no tengan renglones cargados — probá con "Documentos".{% endif %}
+    </div>
   {% endif %}
 </div>
 

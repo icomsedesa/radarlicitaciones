@@ -96,7 +96,7 @@
     <div class="card">
       <h2>Vigentes hoy</h2>
       <div class="hero-num">{{ '{:,}'.format(total_vigentes) }}</div>
-      <div class="hero-label">licitaciones con fecha de apertura futura</div>
+      <div class="hero-label">procesos con fecha de apertura futura</div>
       <div class="hero-sub">Última actualización de datos: {{ ultima_actualizacion[:10] if ultima_actualizacion else '—' }}</div>
     </div>
 
@@ -135,7 +135,7 @@
         </tbody>
       </table>
       {% else %}
-        <div class="kw-empty">No hay licitaciones vigentes en este momento.</div>
+        <div class="kw-empty">No hay procesos vigentes en este momento.</div>
       {% endif %}
     </div>
 

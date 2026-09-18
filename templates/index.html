@@ -116,6 +116,18 @@
   .pill-clear{background:none;border:1.5px dashed var(--border);color:var(--text-muted);}
   .pill-clear:hover{color:var(--text);border-color:var(--text-muted);}
 
+  /* ---------- toggle documentos / renglones ---------- */
+  .vista-toggle{display:inline-flex;border:1.5px solid var(--border);border-radius:10px;overflow:hidden;}
+  .vista-btn{
+    font-family:ui-monospace,monospace;font-size:12.5px;font-weight:700;padding:8px 16px;
+    background:var(--surface);color:var(--text-muted);text-decoration:none;cursor:pointer;
+    letter-spacing:.03em;text-transform:uppercase;
+  }
+  .vista-btn + .vista-btn{border-left:1.5px solid var(--border);}
+  .vista-btn:hover{background:var(--surface-2);}
+  .vista-btn.active{background:var(--brand-teal);color:#fff;}
+  .hidden{display:none!important;}
+
   /* ---------- pliego oficial link ---------- */
   a.oficial{
     display:inline-flex;align-items:center;gap:4px;flex-shrink:0;
@@ -191,7 +203,7 @@
   <aside class="sidebar">
     <div class="kw-panel">
       <div class="kw-title">Palabras clave</div>
-      <div class="kw-sub">Guardá palabras y tocá una para filtrar por ella. El número es cuántas licitaciones vigentes la contienen.</div>
+      <div class="kw-sub">Guardá palabras y tocá una para filtrar por ella. El número es cuántos procesos vigentes la contienen.</div>
       <div class="kw-add-row">
         <input type="text" id="kw-input" placeholder="Ej: aguja">
         <button type="button" id="kw-add-btn">+</button>
@@ -204,8 +216,12 @@
 
   <div class="filterbar">
     <form id="filtros" onsubmit="return false">
-      <div class="row">
-        <input type="text" id="q" value="{{ q }}" placeholder="Buscar por título, descripción, organismo o N° de proceso...">
+      <div class="row between">
+        <input type="text" id="q" value="{{ q }}" placeholder="Buscar por título, descripción, organismo o N° de proceso..." style="flex:1;">
+        <div class="vista-toggle">
+          <a class="vista-btn {{ 'active' if vista != 'renglones' else '' }}" data-param="vista" data-value="documentos" href="{{ url_with(vista=None) }}">Documentos</a>
+          <a class="vista-btn {{ 'active' if vista == 'renglones' else '' }}" data-param="vista" data-value="renglones" href="{{ url_with(vista='renglones') }}">Renglones</a>
+        </div>
       </div>
 
       <div class="row between">
@@ -216,7 +232,7 @@
           {% endfor %}
         </div>
         <div class="pill-group">
-          <a class="pill {{ 'active' if solo_con_renglones else '' }}" data-param="renglones" data-bool="1" href="{{ url_with(renglones=(None if solo_con_renglones else True)) }}">Con renglones</a>
+          <a class="pill {{ 'active' if solo_con_renglones else '' }} {{ 'hidden' if vista == 'renglones' else '' }}" id="pill-con-renglones" data-param="renglones" data-bool="1" href="{{ url_with(renglones=(None if solo_con_renglones else True)) }}">Con renglones</a>
           <a class="pill {{ 'active' if solo_vigentes else '' }}" data-param="vigentes" data-bool="1" href="{{ url_with(vigentes=(None if solo_vigentes else True)) }}">Vigentes hoy</a>
           <a class="pill {{ 'active' if mostrar_historial else '' }}" data-param="historial" data-bool="1" href="{{ url_with(historial=(None if mostrar_historial else True)) }}">Incluir historial (cerradas)</a>
         </div>
@@ -308,6 +324,8 @@
     if (desdeInput.value) p.set('desde', desdeInput.value);
     if (hastaInput.value) p.set('hasta', hastaInput.value);
     if (currentPage > 1) p.set('pagina', currentPage);
+    const vistaBtn = document.querySelector('.vista-btn.active');
+    if (vistaBtn && vistaBtn.dataset.value === 'renglones') p.set('vista', 'renglones');
     return p;
   }
 
@@ -364,6 +382,20 @@
     e.preventDefault();
     currentPage = parseInt(btn.dataset.page, 10) || 1;
     aplicar(true, {scroll: true});
+  });
+
+  const pillConRenglones = document.getElementById('pill-con-renglones');
+  document.querySelectorAll('.vista-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      currentPage = 1;
+      document.querySelectorAll('.vista-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const esRenglones = btn.dataset.value === 'renglones';
+      pillConRenglones.classList.toggle('hidden', esRenglones);
+      if (esRenglones) pillConRenglones.classList.remove('active');
+      aplicar(true);
+    });
   });
 
   function isoDate(d){ return d.toISOString().slice(0, 10); }
