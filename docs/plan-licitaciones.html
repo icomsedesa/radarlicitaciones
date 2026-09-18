@@ -464,6 +464,17 @@ footer{ margin-top:60px; padding-top:20px; border-top:1px solid var(--border); c
           </ul>
         </div>
         <div class="phase">
+          <div class="phase-head"><span class="phase-name">Fase 2c — PAMI y comparativas (competidores + precios)</span><span class="phase-time">en curso</span></div>
+          <p>A pedido concreto: comparar contra qué precios y proveedores compite IcomSalud, no solo ver licitaciones.</p>
+          <ul class="plain">
+            <li><span class="badge ok">Hecho</span> <strong>PAMI (Nivel Central):</strong> portal propio, HTML estático sin login — 69 licitaciones vigentes, fuertemente concentradas en insumos médicos de alta complejidad (implantes cocleares, neuroestimuladores, endoprótesis).</li>
+            <li><span class="badge ok">Hallazgo clave</span> El "Cuadro de Actas de Apertura" de PAMI es <strong>público, sin login</strong>, y muestra <strong>todas las ofertas recibidas por proceso</strong> (razón social, CUIT, fecha, precio) — no solo la ganadora. Se cargaron <strong>271 ofertas reales sobre 145 procesos</strong>: comparativas de competidores y precios, funcionando ya en el detalle de cada licitación.</li>
+            <li><span class="badge warn">Verificado</span> COMPR.AR nacional <strong>no</strong> expone lo mismo públicamente — la página del proceso adjudicado solo muestra al ganador (dato que ya se tenía). Ver ofertas perdedoras requiere la cuenta de proveedor logueada, como se había planteado originalmente.</li>
+            <li><span class="badge ok">Hecho</span> <strong>Infraestructura de seguridad para credenciales:</strong> cifrado simétrico de contraseñas (Fernet), pantalla <code>/configuracion</code> protegida por login propio donde el usuario carga sus credenciales de portal directamente (nunca pasan por el código ni por el chat), tabla dedicada en la base con la contraseña siempre cifrada.</li>
+            <li><span class="badge risk">Pendiente</span> El conector que use esas credenciales para loguearse en COMPR.AR/BAC y traer las ofertas completas — antes de construirlo hace falta ver la estructura real de esa pantalla logueada.</li>
+          </ul>
+        </div>
+        <div class="phase">
           <div class="phase-head"><span class="phase-name">Fase 3 — Alertas y seguimiento</span><span class="phase-time">2 semanas</span></div>
           <p>Lo que reemplaza el día a día de Falcontenders.</p>
           <ul class="plain">
