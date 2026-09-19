@@ -4,9 +4,10 @@ name: Ingesta programada
 # municipios) contra la base remota en Turso, y despues actualiza estado
 # en vivo y renglones de COMPR.AR. Reemplaza correr esto a mano.
 #
-# Requiere estos secrets configurados en Settings > Secrets and variables
-# > Actions del repo (los mismos valores que en .env / Vercel):
-#   TURSO_DATABASE_URL, TURSO_AUTH_TOKEN
+# Requiere TURSO_DATABASE_URL y TURSO_AUTH_TOKEN cargados como
+# *Environment secrets* (no "Environment variables" -- esas quedan en
+# texto plano, visibles) en el environment "radar" de este repo
+# (Settings > Environments > radar > Environment secrets).
 
 on:
   schedule:
@@ -19,6 +20,7 @@ on:
 jobs:
   ingesta:
     runs-on: ubuntu-latest
+    environment: radar
     timeout-minutes: 60
     env:
       TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}

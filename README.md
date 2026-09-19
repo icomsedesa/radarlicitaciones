@@ -165,7 +165,7 @@ La app en sí (`app.py`) es de solo lectura sobre la base — liviana, ideal par
 1. **Turso**: crear la base (ya hecho para este proyecto — `radar-licitaciones` en la organización de Icom). Si hay que rehacerla: `POST /v1/organizations/{org}/databases` de la [API de Turso](https://docs.turso.tech/api-reference), con un token de organización (Settings de Turso > API Tokens).
 2. **Migrar los datos ya cargados** (evita tener que re-scrapear todo desde cero): `.venv\Scripts\python -m src.migrar_a_turso` — copia todo lo que haya en `data/licitaciones.db` a Turso, preservando los `id` (para que renglones/comparativas sigan apuntando a la licitación correcta).
 3. **Vercel**: desde vercel.com, "Add New… > Project", importar este repo de GitHub. En Project Settings > Environment Variables, cargar las 5 variables de la tabla de arriba. Deploy.
-4. **GitHub Actions**: en el repo de GitHub, Settings > Secrets and variables > Actions, cargar `TURSO_DATABASE_URL` y `TURSO_AUTH_TOKEN` como secrets. El workflow ya programado corre solo desde ahí (o se puede disparar a mano desde la pestaña "Actions").
+4. **GitHub Actions**: en el repo de GitHub, Settings > Environments > crear uno llamado `radar` (el workflow ya apunta ahí) > **Environment secrets** (no "Environment variables" — esas quedan en texto plano y visibles para cualquiera con acceso al repo) > cargar `TURSO_DATABASE_URL` y `TURSO_AUTH_TOKEN`. El workflow ya programado corre solo desde ahí (o se puede disparar a mano desde la pestaña "Actions").
 
 ## Estado
 
