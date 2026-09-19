@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Comparativas · Radar de Licitaciones</title>
+<link rel="icon" href="{{ url_for('static', filename='isotipo.png') }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand-teal:#007068; --brand-teal-dark:#00504a;
+    --bg:#EFF4F2; --surface:#FFFFFF; --surface-2:#E6EDEA; --border:#D6E0DC;
+    --text:#122420; --text-muted:#57655F;
+    --src-comprar:#007068; --src-comprar-soft:#DCEEEC;
+    --src-bac:#2E6DA4; --src-bac-soft:#DEE9F3;
+    --src-pbac:#7B4FA0; --src-pbac-soft:#EBE1F2;
+    --src-muni:#B8622E; --src-muni-soft:#F3E1D3;
+    --src-mendoza:#7A2048; --src-mendoza-soft:#F0DCE4;
+    --src-pami:#8C6D14; --src-pami-soft:#F1E8D0;
+    --shadow:0 1px 2px rgba(10,30,25,.06), 0 6px 18px -10px rgba(10,30,25,.18);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Public Sans',-apple-system,'Segoe UI',sans-serif;font-size:15px;}
+  a{color:inherit;}
+
+  .topbar{background:linear-gradient(135deg,var(--brand-teal),var(--brand-teal-dark));color:#fff;padding:18px 24px;}
+  .topbar-inner{max-width:1600px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;}
+  .topbar img{height:64px;width:auto;display:block;}
+  .topbar h1{font-family:'Poppins',sans-serif;font-weight:800;font-size:clamp(24px,3.4vw,34px);letter-spacing:.02em;margin:0;text-transform:uppercase;}
+  .topnav{display:flex;align-items:center;gap:16px;margin-top:4px;}
+  .topnav a{color:rgba(255,255,255,.85);font-size:13px;text-decoration:underline;text-underline-offset:2px;}
+  .topnav a:hover,.topnav a.current{color:#fff;}
+  .topnav a.current{text-decoration:none;font-weight:700;}
+
+  .page{max-width:1600px;margin:0 auto;padding:24px 24px 64px;}
+  .intro{color:var(--text-muted);font-size:13.5px;max-width:760px;margin:0 0 18px;}
+
+  .filterbar{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 20px;box-shadow:var(--shadow);margin-bottom:20px;}
+  .filterbar form{display:flex;gap:10px;}
+  input[type=text]{flex:1;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface);color:var(--text);font-family:inherit;}
+  button.submit{padding:10px 20px;border:none;border-radius:8px;background:var(--brand-teal);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;font-size:14px;}
+  button.submit:hover{background:var(--brand-teal-dark);}
+
+  .muted{color:var(--text-muted);}
+  .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;min-width:920px;font-size:13.5px;}
+  th{text-align:left;font-family:ui-monospace,monospace;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);background:var(--surface-2);padding:10px 12px;border-bottom:1px solid var(--border);white-space:nowrap;}
+  td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  .badge-fuente{font-family:ui-monospace,monospace;font-size:11px;padding:2px 8px;border-radius:5px;font-weight:700;white-space:nowrap;}
+  .pill-comprar{background:var(--src-comprar-soft);color:var(--src-comprar);}
+  .pill-bac{background:var(--src-bac-soft);color:var(--src-bac);}
+  .pill-pbac{background:var(--src-pbac-soft);color:var(--src-pbac);}
+  .pill-muni{background:var(--src-muni-soft);color:var(--src-muni);}
+  .pill-mendoza{background:var(--src-mendoza-soft);color:var(--src-mendoza);}
+  .pill-pami{background:var(--src-pami-soft);color:var(--src-pami);}
+  .monto{font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .empty{padding:40px;text-align:center;color:var(--text-muted);}
+  .ganadora{color:var(--brand-teal);font-weight:700;}
+  a.titulo{color:var(--text);text-decoration:none;font-weight:600;}
+  a.titulo:hover{color:var(--brand-teal-dark);text-decoration:underline;}
+
+  .pagination{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:18px;}
+  .pag-btn{font-family:ui-monospace,monospace;font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:999px;background:var(--surface-2);color:var(--text);text-decoration:none;}
+  .pag-btn.disabled{opacity:.4;pointer-events:none;}
+  .pag-info{font-family:ui-monospace,monospace;font-size:12.5px;color:var(--text-muted);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div>
+      <h1>Radar de Licitaciones</h1>
+      <div class="topnav">
+        <a href="{{ url_for('index') }}">Buscador</a>
+        <a href="{{ url_for('inicio') }}">Inicio</a>
+        <a class="current" href="{{ url_for('comparativas') }}">Comparativas</a>
+        <a href="{{ url_for('configuracion') }}">Configuración</a>
+      </div>
+    </div>
+    <img src="{{ url_for('static', filename='logo-reverse.png') }}" alt="IcomSalud" style="background:transparent;">
+  </div>
+</div>
+
+<div class="page">
+  <p class="intro">Todas las ofertas recibidas cargadas hasta ahora (Actas de Apertura de PAMI y demás fuentes con datos de comparativas). Buscá por proveedor, CUIT, organismo o N° de proceso para ver quién compite en qué.</p>
+
+  <div class="filterbar">
+    <form method="get">
+      <input type="text" name="q" value="{{ q }}" placeholder="Buscar por proveedor, título, organismo o N° de proceso...">
+      <button type="submit" class="submit">Buscar</button>
+    </form>
+  </div>
+
+  <p class="muted" style="margin:-8px 0 14px;font-size:13px;">Mostrando {{ shown }} de {{ total }} ofertas</p>
+
+  <div class="table-wrap">
+    {% if rows %}
+    <table>
+      <thead>
+        <tr>
+          <th>Fuente</th><th>N° proceso</th><th>Licitación</th><th>Organismo</th>
+          <th>Apertura</th><th>Proveedor</th><th>CUIT</th><th>Fecha oferta</th><th>Monto cotizado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr {% if r.es_ganadora %}style="background:var(--surface-2);"{% endif %}>
+          <td><span class="badge-fuente pill-{{ fuente_clase(r.fuente) }}">{{ r.fuente }}</span></td>
+          <td><a class="titulo" href="{{ url_for('detalle', licitacion_id=r.licitacion_id) }}">{{ r.numero_proceso }}</a></td>
+          <td>{{ r.titulo or '(sin título)' }}</td>
+          <td>{{ r.organismo or '—' }}</td>
+          <td>{{ r.fecha_apertura[:16].replace('T',' ') if r.fecha_apertura else '—' }}</td>
+          <td>{{ r.proveedor or '—' }}{% if r.es_ganadora %} <span class="ganadora">★ menor precio</span>{% endif %}</td>
+          <td>{{ r.cuit or '—' }}</td>
+          <td>{{ r.fecha_oferta or '—' }}</td>
+          <td class="monto">{% if r.monto %}{{ '{:,.2f}'.format(r.monto) }} {{ r.moneda or '' }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <div class="empty">
+        {% if q %}Sin ofertas que coincidan con "{{ q }}".{% else %}Todavía no hay ofertas cargadas. Por ahora la única fuente con Actas de Apertura es PAMI — corré la ingesta para sumar más.{% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+  {% if total_paginas > 1 %}
+  <div class="pagination">
+    <a class="pag-btn {{ 'disabled' if pagina <= 1 else '' }}" href="{{ url_with(pagina=pagina - 1) }}">‹ Anterior</a>
+    <span class="pag-info">Página {{ pagina }} de {{ total_paginas }}</span>
+    <a class="pag-btn {{ 'disabled' if pagina >= total_paginas else '' }}" href="{{ url_with(pagina=pagina + 1) }}">Siguiente ›</a>
+  </div>
+  {% endif %}
+</div>
+</body>
+</html>

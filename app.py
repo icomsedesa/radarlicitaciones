@@ -130,7 +130,7 @@ def _url_with(**overrides):
         else:
             args[k] = "1" if v is True else v
     qs = urlencode(args)
-    return "/" + (f"?{qs}" if qs else "")
+    return request.path + (f"?{qs}" if qs else "")
 
 
 app.jinja_env.globals["url_with"] = _url_with
@@ -336,6 +336,63 @@ def _buscar():
         pagina=pagina,
         total_paginas=total_paginas,
     )
+
+
+def _comparativas():
+    """Vista cruzada de licitacion_ofertas (a diferencia del detalle de una
+    licitacion puntual): todas las ofertas de todos los proveedores, para
+    poder buscar por competidor o por rubro sin tener que entrar
+    licitacion por licitacion."""
+    q = request.args.get("q", "").strip()
+    try:
+        pagina = max(1, int(request.args.get("pagina", "1")))
+    except ValueError:
+        pagina = 1
+
+    conn = db.get_connection()
+    where = ""
+    params = {}
+    if q:
+        where = (
+            "WHERE (o.proveedor LIKE :q OR l.titulo LIKE :q "
+            "OR l.organismo LIKE :q OR l.numero_proceso LIKE :q)"
+        )
+        params["q"] = f"%{q}%"
+
+    query = f"""
+        SELECT o.id AS oferta_id, o.proveedor, o.cuit, o.monto, o.moneda,
+               o.fecha_oferta, o.es_ganadora,
+               l.id AS licitacion_id, l.fuente, l.numero_proceso, l.titulo,
+               l.organismo, l.fecha_apertura
+        FROM licitacion_ofertas o
+        JOIN licitaciones l ON l.id = o.licitacion_id
+        {where}
+        ORDER BY l.fecha_apertura DESC, o.monto ASC
+        LIMIT {PAGE_SIZE} OFFSET {(pagina - 1) * PAGE_SIZE}
+    """
+    rows = [dict(r) for r in conn.execute(query, params).fetchall()]
+
+    total = conn.execute(
+        f"""
+        SELECT COUNT(*) c
+        FROM licitacion_ofertas o
+        JOIN licitaciones l ON l.id = o.licitacion_id
+        {where}
+        """,
+        params,
+    ).fetchone()["c"]
+    conn.close()
+
+    total_paginas = max(1, -(-total // PAGE_SIZE))
+    return dict(
+        rows=rows, total=total, q=q, pagina=pagina, total_paginas=total_paginas,
+        shown=len(rows),
+    )
+
+
+@app.route("/comparativas")
+def comparativas():
+    return render_template("comparativas.html", **_comparativas())
 
 
 @app.route("/")
