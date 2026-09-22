@@ -65,6 +65,18 @@
   .pag-btn{font-family:ui-monospace,monospace;font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:999px;background:var(--surface-2);color:var(--text);text-decoration:none;}
   .pag-btn.disabled{opacity:.4;pointer-events:none;}
   .pag-info{font-family:ui-monospace,monospace;font-size:12.5px;color:var(--text-muted);}
+
+  .periodo-row{display:flex;align-items:center;gap:10px;margin:-4px 0 16px;}
+  .periodo-label{font-family:ui-monospace,monospace;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);}
+  .periodo-toggle{display:inline-flex;border:1.5px solid var(--border);border-radius:10px;overflow:hidden;}
+  .periodo-btn{
+    font-family:ui-monospace,monospace;font-size:12.5px;font-weight:700;padding:7px 14px;
+    background:var(--surface);color:var(--text-muted);text-decoration:none;
+    letter-spacing:.03em;
+  }
+  .periodo-btn + .periodo-btn{border-left:1.5px solid var(--border);}
+  .periodo-btn:hover{background:var(--surface-2);}
+  .periodo-btn.active{background:var(--brand-teal);color:#fff;}
 </style>
 </head>
 <body>
@@ -89,12 +101,22 @@
 
   <div class="filterbar">
     <form method="get">
+      <input type="hidden" name="meses" value="{{ meses }}">
       <input type="text" name="q" value="{{ q }}" placeholder="Buscar por proveedor, título, organismo o N° de proceso...">
       <button type="submit" class="submit">Buscar</button>
     </form>
   </div>
 
-  <p class="muted" style="margin:-8px 0 14px;font-size:13px;">Mostrando {{ shown }} de {{ total }} ofertas</p>
+  <div class="periodo-row">
+    <span class="periodo-label">Período</span>
+    <div class="periodo-toggle">
+      {% for m in meses_validos %}
+      <a class="periodo-btn {{ 'active' if meses == m else '' }}" href="{{ url_with(meses=m, pagina=None) }}">{{ m }} meses</a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <p class="muted" style="margin:-8px 0 14px;font-size:13px;">Mostrando {{ shown }} de {{ total }} ofertas de los últimos {{ meses }} meses</p>
 
   <div class="table-wrap">
     {% if rows %}

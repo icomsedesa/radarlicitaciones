@@ -203,12 +203,21 @@ RE_ACTA_ENTRADA = re.compile(
 )
 
 
-def listar_actas() -> list[dict]:
+VENTANA_DIAS = 365  # comparativas solo miran 1 año para atras -- mas viejo no aporta para cotizar
+
+
+def listar_actas(ventana_dias: int | None = VENTANA_DIAS) -> list[dict]:
     """Lista (numero_proceso, tipo, fecha_apertura, objeto, url_acta) para
     las aperturas ya realizadas en Nivel Central. Este listado es mas
     amplio (historico) que `fetch()` (solo lo vigente hoy) -- por eso trae
     tipo/fecha/objeto propios: permite crear la licitacion en la base si
-    todavia no existia, antes de cargarle las ofertas."""
+    todavia no existia, antes de cargarle las ofertas.
+
+    Acotado por default a `ventana_dias` (1 año): PAMI publica el listado
+    completo desde siempre en una sola pagina, sin filtro de fecha propio,
+    asi que el corte se hace aca antes de bajar ningun PDF."""
+    from datetime import datetime, timedelta
+    corte = datetime.now() - timedelta(days=ventana_dias) if ventana_dias else None
     resp = requests.get(ACTAS_URL, headers=HEADERS, timeout=30)
     resp.raise_for_status()
     html = resp.text
@@ -217,15 +226,16 @@ def listar_actas() -> list[dict]:
         fecha, hora, tipo, numero, objeto, url_pdf = m.groups()
         dia, mes, anio = (int(x) for x in fecha.split("/"))
         h, mi = (int(x) for x in hora.split(":")[:2])
-        from datetime import datetime
         try:
-            fecha_apertura = datetime(anio, mes, dia, h, mi).isoformat()
+            fecha_dt = datetime(anio, mes, dia, h, mi)
         except ValueError:
-            fecha_apertura = None
+            fecha_dt = None
+        if corte and fecha_dt and fecha_dt < corte:
+            continue
         resultado.append({
             "numero_proceso": numero,
             "tipo": tipo,
-            "fecha_apertura": fecha_apertura,
+            "fecha_apertura": fecha_dt.isoformat() if fecha_dt else None,
             "objeto": _limpiar_html(objeto).strip(),
             "url_acta": url_pdf if url_pdf.startswith("http") else "https://compraselectronicas.pami.org.ar" + url_pdf,
         })
@@ -292,10 +302,11 @@ def fetch_ofertas_para(numero_proceso: str, url_acta: str) -> list[dict]:
 def fetch_todas_las_ofertas(
     max_actas: int | None = None, conocidos: set[str] | None = None
 ) -> list[dict]:
-    """Recorre todas las Actas de Apertura publicadas (historico, mas
-    amplio que `fetch()` que solo trae lo vigente hoy) y devuelve, por cada
-    una con ofertas, un dict con los datos de la licitacion (para poder
-    crearla si no existia todavia en la base) + su lista de 'ofertas'.
+    """Recorre las Actas de Apertura publicadas en el ultimo año (historico
+    acotado, mas amplio que `fetch()` que solo trae lo vigente hoy) y
+    devuelve, por cada una con ofertas, un dict con los datos de la
+    licitacion (para poder crearla si no existia todavia en la base) + su
+    lista de 'ofertas'.
 
     `conocidos` es un set de numero_proceso ya cargados en una corrida
     anterior: se saltean (un acta de apertura ya publicada no cambia), asi

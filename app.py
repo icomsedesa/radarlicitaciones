@@ -1,7 +1,7 @@
 """Buscador simple (PoC) sobre la base normalizada. Ejecutar: python app.py"""
 import base64
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -338,26 +338,39 @@ def _buscar():
     )
 
 
+MESES_VALIDOS = (12, 6, 3)
+MESES_DEFAULT = 12
+
+
 def _comparativas():
     """Vista cruzada de licitacion_ofertas (a diferencia del detalle de una
     licitacion puntual): todas las ofertas de todos los proveedores, para
     poder buscar por competidor o por rubro sin tener que entrar
-    licitacion por licitacion."""
+    licitacion por licitacion. Acotada por default a los ultimos 12 meses
+    (botones 12/6/3 meses) -- comparativas mas viejas pierden utilidad para
+    cotizar y solo suman ruido."""
     q = request.args.get("q", "").strip()
     try:
         pagina = max(1, int(request.args.get("pagina", "1")))
     except ValueError:
         pagina = 1
+    try:
+        meses = int(request.args.get("meses", MESES_DEFAULT))
+    except ValueError:
+        meses = MESES_DEFAULT
+    if meses not in MESES_VALIDOS:
+        meses = MESES_DEFAULT
 
     conn = db.get_connection()
-    where = ""
-    params = {}
+    condiciones = ["l.fecha_apertura >= :desde"]
+    params = {"desde": (datetime.now() - timedelta(days=meses * 30.44)).isoformat()}
     if q:
-        where = (
-            "WHERE (o.proveedor LIKE :q OR l.titulo LIKE :q "
+        condiciones.append(
+            "(o.proveedor LIKE :q OR l.titulo LIKE :q "
             "OR l.organismo LIKE :q OR l.numero_proceso LIKE :q)"
         )
         params["q"] = f"%{q}%"
+    where = "WHERE " + " AND ".join(condiciones)
 
     query = f"""
         SELECT o.id AS oferta_id, o.proveedor, o.cuit, o.monto, o.moneda,
@@ -386,7 +399,7 @@ def _comparativas():
     total_paginas = max(1, -(-total // PAGE_SIZE))
     return dict(
         rows=rows, total=total, q=q, pagina=pagina, total_paginas=total_paginas,
-        shown=len(rows),
+        shown=len(rows), meses=meses, meses_validos=MESES_VALIDOS,
     )
 
 
