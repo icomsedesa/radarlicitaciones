@@ -293,7 +293,7 @@
     <p class="sub">Fuentes de datos públicas conectadas al radar. Se van sumando a medida que se incorporan.</p>
 
     {% for slug, nombre, desc in jurisdicciones %}
-    <div class="jur-item">
+    <div class="jur-item" data-fuente="{{ slug }}">
       <span class="jur-dot" style="background:var(--src-{{ fuente_clase(slug) }})"></span>
       <div>
         <div class="name">{{ nombre }}</div>
@@ -348,6 +348,40 @@
 
   let debounceTimer = null;
 
+  function actualizarPorFuente(){
+    // Las pills de fuente y el modal de jurisdicciones se renderizan una
+    // sola vez con la pagina -- sin esto, quedan mostrando la cantidad de
+    // la busqueda anterior (o la inicial) mientras la tabla de resultados
+    // ya se actualizo por AJAX, dando numeros que no cierran entre si.
+    const p = new URLSearchParams();
+    if (qInput.value.trim()) p.set('q', qInput.value.trim());
+    if (document.querySelector('.pill[data-param="vigentes"].active')) p.set('vigentes', '1');
+    if (document.querySelector('.pill[data-param="historial"].active')) p.set('historial', '1');
+    const urg = document.querySelector('.pill[data-param="urgencia"].active');
+    if (urg) p.set('urgencia', urg.dataset.value);
+    if (desdeInput.value) p.set('desde', desdeInput.value);
+    if (hastaInput.value) p.set('hasta', hastaInput.value);
+
+    fetch('/api/fuentes?' + p.toString())
+      .then(r => r.json())
+      .then(data => {
+        let total = 0;
+        document.querySelectorAll('.pill[data-param="fuente"]:not([data-clear])').forEach(pill => {
+          const n = data[pill.dataset.value] || 0;
+          total += n;
+          const b = pill.querySelector('b');
+          if (b) b.textContent = n;
+        });
+        const todas = document.querySelector('.pill[data-param="fuente"][data-clear="1"] b');
+        if (todas) todas.textContent = total;
+        document.querySelectorAll('.jur-item[data-fuente]').forEach(item => {
+          const count = item.querySelector('.count');
+          if (count) count.textContent = (data[item.dataset.fuente] || 0).toLocaleString('en-US');
+        });
+      })
+      .catch(() => {});
+  }
+
   function aplicar(push, opts){
     opts = opts || {};
     const params = currentParams();
@@ -361,6 +395,7 @@
         if (opts.scroll) resultadosEl.scrollIntoView({behavior: 'smooth', block: 'start'});
       })
       .catch(() => {});
+    actualizarPorFuente();
     sincronizarPresets();
     sincronizarPalabrasClave();
     actualizarQClear();

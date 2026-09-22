@@ -174,6 +174,60 @@ def _texto_faltante(fecha_apertura, urgencia):
     return f"{dias} días"
 
 
+def _por_fuente_actual(conn=None):
+    """Desglose de procesos por fuente bajo los MISMOS filtros que la
+    busqueda actual (vigentes/urgencia/fechas/historial/texto), sin el
+    propio filtro de fuente -- lo usan tanto el render inicial de las pills
+    (_buscar) como /api/fuentes, al que el front pega despues de cada
+    busqueda AJAX para que las pills no queden mostrando un numero de una
+    busqueda anterior mientras la tabla de resultados ya cambio."""
+    q = request.args.get("q", "").strip()
+    solo_vigentes = request.args.get("vigentes", "") == "1"
+    urgencia = request.args.get("urgencia", "").strip()
+    apertura_desde = request.args.get("desde", "").strip()
+    apertura_hasta = request.args.get("hasta", "").strip()
+    mostrar_historial = request.args.get("historial", "") == "1"
+
+    where = []
+    params = {}
+    if solo_vigentes:
+        where.append("base.estado IN ('Publicado', 'active')")
+    if urgencia:
+        where.append("base.urgencia = :urgencia")
+        params["urgencia"] = urgencia
+    if apertura_desde:
+        where.append("date(base.fecha_apertura) >= :desde")
+        params["desde"] = apertura_desde
+    if apertura_hasta:
+        where.append("date(base.fecha_apertura) <= :hasta")
+        params["hasta"] = apertura_hasta
+    if not mostrar_historial:
+        where.append("base.urgencia IN ('rojo', 'amarillo', 'verde')")
+    if q:
+        where.append(
+            "(base.titulo LIKE :q OR base.descripcion LIKE :q "
+            "OR base.organismo LIKE :q OR base.numero_proceso LIKE :q)"
+        )
+        params["q"] = f"%{q}%"
+    where_sql = f"WHERE {' AND '.join(where)}" if where else ""
+
+    conn_propia = conn is None
+    if conn_propia:
+        conn = db.get_connection()
+    rows = conn.execute(
+        f"""
+        WITH base AS (SELECT *, {URGENCIA_CASE} AS urgencia FROM licitaciones)
+        SELECT fuente, COUNT(*) c FROM base
+        {where_sql}
+        GROUP BY fuente
+        """,
+        params,
+    ).fetchall()
+    if conn_propia:
+        conn.close()
+    return {r["fuente"]: r["c"] for r in rows}
+
+
 def _buscar():
     q = request.args.get("q", "").strip()
     fuente = request.args.get("fuente", "").strip()
@@ -212,22 +266,6 @@ def _buscar():
         # cerrados y los que no tienen fecha cargada quedan afuera salvo
         # que el usuario pida ver el historial completo.
         where.append("base.urgencia IN ('rojo', 'amarillo', 'verde')")
-
-    # desglose por fuente (pills del filtro + modal de jurisdicciones): se
-    # calcula ANTES de sumar el propio filtro de fuente, con los mismos
-    # filtros que la busqueda actual (vigentes/urgencia/fechas/historial +
-    # texto), para que el numero de cada pill sea "cuantos procesos hay con
-    # los filtros de hoy", no el total historico de la tabla (que incluia
-    # años de datos cerrados de COMPR.AR y confundia mostrando cientos de
-    # miles en vez de los procesos activos).
-    where_por_fuente = list(where)
-    params_fuente = dict(params)
-    if q:
-        where_por_fuente.append(
-            "(base.titulo LIKE :q_fuente OR base.descripcion LIKE :q_fuente "
-            "OR base.organismo LIKE :q_fuente OR base.numero_proceso LIKE :q_fuente)"
-        )
-        params_fuente["q_fuente"] = f"%{q}%"
 
     if fuente:
         where.append("base.fuente = :fuente")
@@ -327,16 +365,7 @@ def _buscar():
             params,
         ).fetchone()["c"]
 
-    where_pf_sql = f"WHERE {' AND '.join(where_por_fuente)}" if where_por_fuente else ""
-    por_fuente = {r["fuente"]: r["c"] for r in conn.execute(
-        f"""
-        WITH base AS (SELECT *, {URGENCIA_CASE} AS urgencia FROM licitaciones)
-        SELECT fuente, COUNT(*) c FROM base
-        {where_pf_sql}
-        GROUP BY fuente
-        """,
-        params_fuente,
-    ).fetchall()}
+    por_fuente = _por_fuente_actual(conn)
     conn.close()
 
     total_paginas = max(1, -(-total // PAGE_SIZE))  # ceil division
@@ -510,6 +539,11 @@ def api_contar():
     ).fetchone()["c"]
     conn.close()
     return {"count": count}
+
+
+@app.route("/api/fuentes")
+def api_fuentes():
+    return _por_fuente_actual()
 
 
 @app.route("/licitacion/<int:licitacion_id>")
