@@ -73,6 +73,12 @@
   .row.between{justify-content:space-between;}
   input[type=text],input[type=date]{padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface);color:var(--text);font-family:inherit;}
   input[type=text]{flex:1;min-width:240px;}
+
+  .q-wrap{position:relative;flex:1;min-width:240px;}
+  .q-wrap input[type=text]{width:100%;padding-right:34px;}
+  .q-clear{display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);width:22px;height:22px;border:none;border-radius:50%;background:none;color:var(--text-muted);font-size:18px;line-height:1;cursor:pointer;}
+  .q-clear:hover{background:var(--surface-2);color:var(--text);}
+  .q-wrap.has-value .q-clear{display:block;}
   .date-field{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-muted);}
   button.submit{padding:10px 20px;border:none;border-radius:8px;background:var(--brand-teal);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;font-size:14px;}
   button.submit:hover{background:var(--brand-teal-dark);}
@@ -219,7 +225,10 @@
   <div class="filterbar">
     <form id="filtros" onsubmit="return false">
       <div class="row between">
-        <input type="text" id="q" value="{{ q }}" placeholder="Buscar por título, descripción, organismo o N° de proceso..." style="flex:1;">
+        <div class="q-wrap">
+          <input type="text" id="q" value="{{ q }}" placeholder="Buscar por título, descripción, organismo o N° de proceso...">
+          <button type="button" class="q-clear" id="q-clear" title="Borrar búsqueda" aria-label="Borrar búsqueda">&times;</button>
+        </div>
         <div class="vista-toggle">
           <a class="vista-btn {{ 'active' if vista != 'renglones' else '' }}" data-param="vista" data-value="documentos" href="{{ url_with(vista=None) }}">Documentos</a>
           <a class="vista-btn {{ 'active' if vista == 'renglones' else '' }}" data-param="vista" data-value="renglones" href="{{ url_with(vista='renglones') }}">Renglones</a>
@@ -309,9 +318,15 @@
 (function(){
   const resultadosEl = document.getElementById('resultados');
   const qInput = document.getElementById('q');
+  const qWrap = document.querySelector('.q-wrap');
+  const qClear = document.getElementById('q-clear');
   const desdeInput = document.getElementById('desde');
   const hastaInput = document.getElementById('hasta');
   let currentPage = {{ pagina }};
+
+  function actualizarQClear(){
+    qWrap.classList.toggle('has-value', qInput.value.trim().length > 0);
+  }
 
   function currentParams(){
     const p = new URLSearchParams();
@@ -348,15 +363,26 @@
       .catch(() => {});
     sincronizarPresets();
     sincronizarPalabrasClave();
+    actualizarQClear();
   }
 
   qInput.addEventListener('input', () => {
     currentPage = 1;
+    actualizarQClear();
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => aplicar(true), 350);
   });
   qInput.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); currentPage = 1; clearTimeout(debounceTimer); aplicar(true); }
+  });
+
+  qClear.addEventListener('click', () => {
+    currentPage = 1;
+    qInput.value = '';
+    actualizarQClear();
+    clearTimeout(debounceTimer);
+    aplicar(true);
+    qInput.focus();
   });
 
   desdeInput.addEventListener('change', () => { currentPage = 1; aplicar(true); });
@@ -514,10 +540,12 @@
       return;
     }
     currentPage = 1;
-    qInput.value = chip.dataset.word;
+    const yaActivo = qInput.value.trim().toLowerCase() === chip.dataset.word.toLowerCase();
+    qInput.value = yaActivo ? '' : chip.dataset.word;
     aplicar(true);
   });
 
+  actualizarQClear();
   kwRenderizar();
 })();
 </script>

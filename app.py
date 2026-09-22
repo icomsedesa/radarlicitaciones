@@ -196,9 +196,6 @@ def _buscar():
     # que lo trae (fuente, apertura, urgencia, etc. son del proceso).
     where = []
     params = {}
-    if fuente:
-        where.append("base.fuente = :fuente")
-        params["fuente"] = fuente
     if solo_vigentes:
         where.append("base.estado IN ('Publicado', 'active')")
     if urgencia:
@@ -215,6 +212,26 @@ def _buscar():
         # cerrados y los que no tienen fecha cargada quedan afuera salvo
         # que el usuario pida ver el historial completo.
         where.append("base.urgencia IN ('rojo', 'amarillo', 'verde')")
+
+    # desglose por fuente (pills del filtro + modal de jurisdicciones): se
+    # calcula ANTES de sumar el propio filtro de fuente, con los mismos
+    # filtros que la busqueda actual (vigentes/urgencia/fechas/historial +
+    # texto), para que el numero de cada pill sea "cuantos procesos hay con
+    # los filtros de hoy", no el total historico de la tabla (que incluia
+    # años de datos cerrados de COMPR.AR y confundia mostrando cientos de
+    # miles en vez de los procesos activos).
+    where_por_fuente = list(where)
+    params_fuente = dict(params)
+    if q:
+        where_por_fuente.append(
+            "(base.titulo LIKE :q_fuente OR base.descripcion LIKE :q_fuente "
+            "OR base.organismo LIKE :q_fuente OR base.numero_proceso LIKE :q_fuente)"
+        )
+        params_fuente["q_fuente"] = f"%{q}%"
+
+    if fuente:
+        where.append("base.fuente = :fuente")
+        params["fuente"] = fuente
 
     # con apertura futura primero (mas proxima primero), despues el resto.
     # OJO: "estado" no sirve como criterio aca -- su significado varia por
@@ -310,8 +327,15 @@ def _buscar():
             params,
         ).fetchone()["c"]
 
+    where_pf_sql = f"WHERE {' AND '.join(where_por_fuente)}" if where_por_fuente else ""
     por_fuente = {r["fuente"]: r["c"] for r in conn.execute(
-        "SELECT fuente, COUNT(*) c FROM licitaciones GROUP BY fuente"
+        f"""
+        WITH base AS (SELECT *, {URGENCIA_CASE} AS urgencia FROM licitaciones)
+        SELECT fuente, COUNT(*) c FROM base
+        {where_pf_sql}
+        GROUP BY fuente
+        """,
+        params_fuente,
     ).fetchall()}
     conn.close()
 
