@@ -107,7 +107,11 @@ def run(comprar_limit=None, bac_limit=None, pbac_pages=5, municipios=True):
         # historico mas amplio que el listado de vigentes -- si el proceso
         # todavia no estaba en la base (ya cerrado, fuera del listado de
         # "vigentes hoy"), se crea aca con lo que trae el acta.
-        actas_con_ofertas = pami.fetch_todas_las_ofertas()
+        # `conocidos` evita re-descargar/parsear el PDF de actas que ya se
+        # procesaron en una corrida anterior (una vez publicada, un acta no
+        # cambia) -- sin esto, esta ingesta crecia sin limite dia a dia.
+        conocidos = db.procesos_con_ofertas(conn, "pami")
+        actas_con_ofertas = pami.fetch_todas_las_ofertas(conocidos=conocidos)
         n_ofertas = 0
         for row in actas_con_ofertas:
             ofertas = row.pop("ofertas")

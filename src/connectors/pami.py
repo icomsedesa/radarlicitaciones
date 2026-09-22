@@ -289,12 +289,21 @@ def fetch_ofertas_para(numero_proceso: str, url_acta: str) -> list[dict]:
     return _extraer_ofertas_de_tablas(tablas)
 
 
-def fetch_todas_las_ofertas(max_actas: int | None = None) -> list[dict]:
+def fetch_todas_las_ofertas(
+    max_actas: int | None = None, conocidos: set[str] | None = None
+) -> list[dict]:
     """Recorre todas las Actas de Apertura publicadas (historico, mas
     amplio que `fetch()` que solo trae lo vigente hoy) y devuelve, por cada
     una con ofertas, un dict con los datos de la licitacion (para poder
-    crearla si no existia todavia en la base) + su lista de 'ofertas'."""
+    crearla si no existia todavia en la base) + su lista de 'ofertas'.
+
+    `conocidos` es un set de numero_proceso ya cargados en una corrida
+    anterior: se saltean (un acta de apertura ya publicada no cambia), asi
+    una ingesta diaria solo baja y parsea los PDF de actas nuevas en vez de
+    las ~cientas historicas cada vez."""
     actas = listar_actas()
+    if conocidos:
+        actas = [a for a in actas if a["numero_proceso"] not in conocidos]
     if max_actas:
         actas = actas[:max_actas]
     resultado = []

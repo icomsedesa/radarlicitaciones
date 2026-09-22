@@ -21,7 +21,7 @@ jobs:
   ingesta:
     runs-on: ubuntu-latest
     environment: radar
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
       TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
       TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}

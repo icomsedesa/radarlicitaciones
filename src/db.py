@@ -278,6 +278,23 @@ def get_ofertas(conn, licitacion_id):
     ).fetchall()
 
 
+def procesos_con_ofertas(conn, fuente):
+    """Numeros de proceso de `fuente` que ya tienen ofertas cargadas -- para
+    que una ingesta incremental (ej. actas de apertura de PAMI, que hay que
+    descargar y parsear en PDF una por una) no tenga que volver a bajar algo
+    que ya se proceso en una corrida anterior."""
+    rows = conn.execute(
+        """
+        SELECT DISTINCT l.numero_proceso
+        FROM licitacion_ofertas o
+        JOIN licitaciones l ON l.id = o.licitacion_id
+        WHERE l.fuente = ?
+        """,
+        (fuente,),
+    ).fetchall()
+    return {r["numero_proceso"] for r in rows}
+
+
 def guardar_credencial(conn, portal, usuario, password_cifrada):
     """`password_cifrada` ya debe venir cifrada (ver src/secrets_store.py) --
     esta funcion no cifra, solo persiste."""
