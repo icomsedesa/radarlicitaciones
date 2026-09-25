@@ -1,5 +1,7 @@
-"""Actualiza el estado real de las licitaciones COMPR.AR contra el buscador
-EN VIVO de comprar.gob.ar (no el CSV masivo, que esta semanas desfasado).
+"""Actualiza el estado real de las licitaciones (COMPR.AR, Mendoza, BAC)
+contra los buscadores EN VIVO de cada portal -- no los CSV/datasets
+masivos, que quedan semanas desfasados (o, en el caso de BAC, con la fecha
+de apertura directamente vencida aunque el proceso siga abierto).
 
 Corre esto periodicamente (p.ej. una vez por dia) para saber que esta
 realmente "Publicado" (abierto) hoy. Actualiza estado/fecha_apertura/titulo
@@ -13,10 +15,21 @@ Uso:
 import argparse
 
 from src import db
-from src.connectors import comprar_ar_live, mendoza_live
+from src.connectors import bac_live, comprar_ar_live, mendoza_live
 
 
 def run(max_paginas=None):
+    print("Consultando buenosairescompras.gob.ar (apertura proxima)...")
+    rows = bac_live.fetch(max_paginas=max_paginas)
+    print(f"{len(rows)} licitaciones con apertura proxima encontradas")
+
+    conn = db.get_connection()
+    n_update, n_insert = db.upsert_live_estado(conn, rows)
+    conn.close()
+
+    print(f"  {n_update} actualizadas (ya estaban del CSV anual)")
+    print(f"  {n_insert} nuevas (todavia no estaban en el CSV anual)")
+
     print("Consultando comprar.gob.ar (Estado = Publicado)...")
     rows = comprar_ar_live.fetch_abiertas(max_paginas=max_paginas)
     print(f"{len(rows)} licitaciones publicadas encontradas")

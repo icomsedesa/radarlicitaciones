@@ -41,7 +41,7 @@ jobs:
       - name: Ingesta completa (todas las fuentes)
         run: python -m src.ingest
 
-      - name: Estado en vivo (COMPR.AR, Mendoza, OSEP)
+      - name: Estado en vivo (COMPR.AR, Mendoza, OSEP, BAC)
         run: python -m src.refresh_live
 
       - name: Renglones de COMPR.AR vigentes

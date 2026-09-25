@@ -177,6 +177,12 @@ WHERE fuente = :fuente AND numero_proceso = :numero_proceso
 """
 
 
+CAMPOS_REFRESH_ESTADO = (
+    "estado", "fecha_apertura", "titulo", "organismo", "tipo_procedimiento",
+    "fuente", "numero_proceso",
+)
+
+
 def upsert_live_estado(conn, rows):
     """Para conectores 'en vivo' que solo traen estado/fecha/titulo (no monto
     ni descripcion, p.ej. comprar_ar_live): si la licitacion ya existe (por
@@ -186,7 +192,13 @@ def upsert_live_estado(conn, rows):
     n_update = 0
     n_insert = 0
     for row in rows:
-        cur = conn.execute(REFRESH_ESTADO_SQL, row)
+        # Turso (a diferencia de sqlite3 local) rechaza el execute si el
+        # dict de params trae claves de mas que no aparecen en el SQL (acá
+        # el resto de los campos del connector, como monto/descripcion, que
+        # esta funcion deliberadamente no toca) -- filtrar a las que hacen
+        # falta antes de mandarlo.
+        params = {k: row.get(k) for k in CAMPOS_REFRESH_ESTADO}
+        cur = conn.execute(REFRESH_ESTADO_SQL, params)
         if cur.rowcount > 0:
             n_update += 1
         else:
