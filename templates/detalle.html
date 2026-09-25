@@ -58,7 +58,10 @@
 </head>
 <body>
 <div class="page">
-  <a class="back" href="{{ url_for('index') }}">&larr; Volver al buscador</a>
+  <div style="display:flex;justify-content:space-between;align-items:baseline;">
+    <a class="back" href="{{ url_for('index') }}">&larr; Volver al buscador</a>
+    <a class="back" style="opacity:.6;" href="{{ url_for('logout') }}">Salir</a>
+  </div>
   <div style="margin-top:14px;"><span class="badge-fuente pill-{{ fuente_clase(lic.fuente) }}">{{ lic.fuente }}</span></div>
   <h1>{{ lic.titulo or '(sin título)' }}</h1>
   <p class="meta">{{ lic.numero_proceso }} · {{ lic.organismo or 'organismo no informado' }} · {{ lic.jurisdiccion }}</p>

@@ -57,7 +57,7 @@ Para poder automatizar el login a COMPR.AR/BAC sin que las contraseñas queden e
 
 - **`src/secrets_store.py`**: cifrado simétrico (Fernet/`cryptography`). La clave vive en `data/.secret.key`, autogenerada la primera vez, fuera de git (`data/` ya está en `.gitignore`). Sin esa clave los valores cifrados son inútiles — si se pierde el archivo, hay que volver a cargar las credenciales.
 - **Tabla `credenciales_portal`**: `usuario` + `password_cifrada` (BLOB), nunca texto plano.
-- **`/configuracion`**: pantalla donde el usuario carga usuario/contraseña de cada portal *él mismo* — nunca se escriben acá. Queda detrás de un login propio (`/login`), habilitado solo si está definida la variable de entorno `RADAR_ADMIN_PASSWORD` (si no está, la pantalla queda inaccesible — falla cerrado, no abierto). La contraseña guardada nunca se vuelve a mostrar, solo "configurado desde [fecha]".
+- **`/configuracion`**: pantalla donde el usuario carga usuario/contraseña de cada portal *él mismo* — nunca se escriben acá. Como todo el sitio, queda detrás del login con Google (ver "Login" más abajo). La contraseña guardada nunca se vuelve a mostrar, solo "configurado desde [fecha]".
 
 Pendiente (siguiente paso): el conector que efectivamente use estas credenciales para loguearse en COMPR.AR/BAC vía Playwright y traer las ofertas — antes de construirlo hace falta ver la estructura real de esa pantalla logueada (no es posible sin la cuenta), así que el paso siguiente es que alguien de Icom se loguee y comparta capturas de la vista de ofertas post-apertura, igual que se hizo con Falcontenders.
 
@@ -138,7 +138,18 @@ Guarda todo en `data/licitaciones.db` (SQLite local) salvo que estén definidas 
 .venv\Scripts\python app.py
 ```
 
-Abre http://localhost:5000. Para habilitar `/configuracion` (credenciales de portales), definir antes `RADAR_ADMIN_PASSWORD` como variable de entorno — sin eso la pantalla queda inaccesible.
+Abre http://localhost:5000. Todo el sitio pide login con Google (ver sección "Login con Google" más abajo) — sin `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` definidos, queda inaccesible (falla cerrado).
+
+## Login con Google
+
+Todo el sitio (no solo `/configuracion`) requiere iniciar sesión con una cuenta de Google Workspace `@icomsalud.com.ar` (constante `DOMINIO_PERMITIDO` en `app.py`). Es un panel colaborativo: no hay roles ni distinción entre usuarios — cualquiera con cuenta del dominio ve y edita exactamente los mismos datos (palabras clave, credenciales de portales, etc.), todo compartido vía la base.
+
+**Crear el OAuth Client ID (una sola vez, lo hace quien administre el proyecto de Google Cloud de Icom):**
+
+1. [Google Cloud Console](https://console.cloud.google.com/) → crear o elegir un proyecto → **APIs & Services > OAuth consent screen**: tipo "Interno" si el workspace lo permite (restringe automáticamente a `@icomsalud.com.ar`) o "Externo" en modo producción (en ese caso la restricción de dominio la hace igual la app, verificando el claim `hd` del token de Google — ver `auth_callback` en `app.py`).
+2. **APIs & Services > Credentials > Create Credentials > OAuth client ID**, tipo "Web application".
+3. **Authorized redirect URIs**: agregar `https://<tu-dominio-de-vercel>/auth/callback` y, para desarrollo local, `http://localhost:5000/auth/callback`.
+4. Copiar el **Client ID** y **Client secret** generados → van como `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET` en `.env` local, Vercel (Project Settings > Environment Variables) y no hace falta en GitHub Actions (la ingesta no sirve páginas web, no necesita login).
 
 ## Deploy (Turso + Vercel + GitHub Actions)
 
@@ -156,7 +167,7 @@ La app en sí (`app.py`) es de solo lectura sobre la base — liviana, ideal par
 | `TURSO_AUTH_TOKEN` | Token de esa base puntual (no el token de organización — ese es más sensible, no debería vivir en ningún deploy) |
 | `FLASK_SECRET_KEY` | Firma las cookies de sesión — **fija**, si no se define se autogenera en disco local (sirve para dev, no para Vercel: ahí el disco no persiste entre invocaciones y cada arranque frío invalidaría las sesiones activas) |
 | `SECRETS_ENCRYPTION_KEY` | Cifra las credenciales de portales guardadas en `/configuracion` — igual de fija que la anterior; si cambia, las credenciales ya guardadas quedan indescifrables para siempre |
-| `RADAR_ADMIN_PASSWORD` | Contraseña de acceso a `/configuracion` |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Login con Google (ver sección "Login con Google" arriba) — solo hace falta en local y en Vercel, no en GitHub Actions |
 
 `FLASK_SECRET_KEY` y `SECRETS_ENCRYPTION_KEY` se generan una sola vez (`python -c "import os,base64; print(base64.urlsafe_b64encode(os.urandom(32)).decode())"` y `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` respectivamente) y de ahí en más se copian tal cual a cada lugar — nunca se regeneran salvo que se quiera invalidar todo a propósito.
 
@@ -164,7 +175,7 @@ La app en sí (`app.py`) es de solo lectura sobre la base — liviana, ideal par
 
 1. **Turso**: crear la base (ya hecho para este proyecto — `radar-licitaciones` en la organización de Icom). Si hay que rehacerla: `POST /v1/organizations/{org}/databases` de la [API de Turso](https://docs.turso.tech/api-reference), con un token de organización (Settings de Turso > API Tokens).
 2. **Migrar los datos ya cargados** (evita tener que re-scrapear todo desde cero): `.venv\Scripts\python -m src.migrar_a_turso` — copia todo lo que haya en `data/licitaciones.db` a Turso, preservando los `id` (para que renglones/comparativas sigan apuntando a la licitación correcta).
-3. **Vercel**: desde vercel.com, "Add New… > Project", importar este repo de GitHub. En Project Settings > Environment Variables, cargar las 5 variables de la tabla de arriba. Deploy.
+3. **Vercel**: desde vercel.com, "Add New… > Project", importar este repo de GitHub. En Project Settings > Environment Variables, cargar las 6 variables de la tabla de arriba (incluidas `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`, con el redirect URI de Google apuntando a esta misma URL de Vercel + `/auth/callback`). Deploy.
 4. **GitHub Actions**: en el repo de GitHub, Settings > Environments > crear uno llamado `radar` (el workflow ya apunta ahí) > **Environment secrets** (no "Environment variables" — esas quedan en texto plano y visibles para cualquiera con acceso al repo) > cargar `TURSO_DATABASE_URL` y `TURSO_AUTH_TOKEN`. El workflow ya programado corre solo desde ahí (o se puede disparar a mano desde la pestaña "Actions").
 
 ## Estado

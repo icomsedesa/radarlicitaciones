@@ -32,6 +32,7 @@
   .topnav a{color:rgba(255,255,255,.85);font-size:13px;text-decoration:underline;text-underline-offset:2px;}
   .topnav a:hover,.topnav a.current{color:#fff;}
   .topnav a.current{text-decoration:none;font-weight:700;}
+  .topnav .user{color:rgba(255,255,255,.55);font-size:12px;margin-left:8px;}
 
   .page{max-width:1600px;margin:0 auto;padding:24px 24px 64px;}
   .intro{color:var(--text-muted);font-size:13.5px;max-width:760px;margin:0 0 18px;}
@@ -95,6 +96,8 @@
         <a href="{{ url_for('inicio') }}">Inicio</a>
         <a class="current" href="{{ url_for('comparativas') }}">Comparativas</a>
         <a href="{{ url_for('configuracion') }}">Configuración</a>
+        <span class="user">{{ session.usuario.email }}</span>
+        <a href="{{ url_for('logout') }}">Salir</a>
       </div>
     </div>
     <img src="{{ url_for('static', filename='logo-reverse.png') }}" alt="IcomSalud" style="background:transparent;">

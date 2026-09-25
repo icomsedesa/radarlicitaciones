@@ -7,3 +7,4 @@ pdfplumber
 cryptography
 libsql-client
 python-dotenv
+authlib

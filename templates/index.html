@@ -118,6 +118,7 @@
   .topnav a{color:rgba(255,255,255,.85);font-size:13px;text-decoration:underline;text-underline-offset:2px;}
   .topnav a:hover,.topnav a.current{color:#fff;}
   .topnav a.current{text-decoration:none;font-weight:700;}
+  .topnav .user{color:rgba(255,255,255,.55);font-size:12px;margin-left:8px;}
 
   .pill-clear{background:none;border:1.5px dashed var(--border);color:var(--text-muted);}
   .pill-clear:hover{color:var(--text);border-color:var(--text-muted);}
@@ -200,6 +201,8 @@
         <a href="{{ url_for('comparativas') }}">Comparativas</a>
         <a href="{{ url_for('configuracion') }}">Configuración</a>
         <button type="button" class="jur-link" id="abrir-jurisdicciones">Jurisdicciones adheridas ({{ jurisdicciones|length }}) →</button>
+        <span class="user">{{ session.usuario.email }}</span>
+        <a href="{{ url_for('logout') }}">Salir</a>
       </div>
     </div>
     <img src="{{ url_for('static', filename='logo-reverse.png') }}" alt="IcomSalud" style="background:transparent;">

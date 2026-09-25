@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlencode
 
+from authlib.integrations.flask_client import OAuth
 from dotenv import load_dotenv
 from flask import Flask, abort, flash, redirect, render_template, request, session, url_for
 
@@ -31,10 +32,24 @@ else:
         _FLASK_SECRET_PATH.write_bytes(os.urandom(32))
     app.secret_key = _FLASK_SECRET_PATH.read_bytes()
 
-# contraseña para acceder a /configuracion (donde se cargan credenciales de
-# portales) -- se define por variable de entorno, nunca queda en el codigo.
-# Si no esta configurada, /configuracion queda inaccesible (falla cerrado).
-ADMIN_PASSWORD = os.environ.get("RADAR_ADMIN_PASSWORD")
+# Login con Google, restringido al dominio de Workspace de IcomSalud --
+# TODO el sitio pide sesion (antes solo /configuracion, con una password
+# unica compartida). Sin GOOGLE_CLIENT_ID/SECRET configurados, el login
+# queda deshabilitado y por lo tanto el sitio entero inaccesible (falla
+# cerrado, no abierto). Ver README para como crear el OAuth Client ID.
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
+DOMINIO_PERMITIDO = "icomsalud.com.ar"
+
+oauth = OAuth(app)
+if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
+    oauth.register(
+        name="google",
+        client_id=GOOGLE_CLIENT_ID,
+        client_secret=GOOGLE_CLIENT_SECRET,
+        server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+        client_kwargs={"scope": "openid email profile"},
+    )
 
 PAGE_SIZE = 50
 
@@ -605,36 +620,60 @@ def detalle(licitacion_id):
 
 
 def _autenticado():
-    return ADMIN_PASSWORD and session.get("autenticado") is True
+    return session.get("usuario") is not None
 
 
-@app.route("/login", methods=["GET", "POST"])
+RUTAS_PUBLICAS = {"login", "login_google", "auth_callback", "static"}
+
+
+@app.before_request
+def _requerir_login():
+    if request.endpoint is None or request.endpoint in RUTAS_PUBLICAS:
+        return
+    if not _autenticado():
+        return redirect(url_for("login", next=request.full_path))
+
+
+@app.route("/login")
 def login():
-    if not ADMIN_PASSWORD:
+    return render_template("login.html", dominio=DOMINIO_PERMITIDO)
+
+
+@app.route("/login/google")
+def login_google():
+    if not (GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET):
         return (
-            "Configuración deshabilitada: falta definir la variable de entorno "
-            "RADAR_ADMIN_PASSWORD antes de iniciar la app.",
+            "Login deshabilitado: faltan definir GOOGLE_CLIENT_ID y "
+            "GOOGLE_CLIENT_SECRET (ver README) antes de iniciar la app.",
             503,
         )
-    if request.method == "POST":
-        if request.form.get("password") == ADMIN_PASSWORD:
-            session["autenticado"] = True
-            return redirect(url_for("configuracion"))
-        flash("Contraseña incorrecta.")
-    return render_template("login.html")
+    session["login_next"] = request.args.get("next") or url_for("index")
+    redirect_uri = url_for("auth_callback", _external=True)
+    return oauth.google.authorize_redirect(redirect_uri)
+
+
+@app.route("/auth/callback")
+def auth_callback():
+    token = oauth.google.authorize_access_token()
+    userinfo = token.get("userinfo") or {}
+    email = (userinfo.get("email") or "").lower()
+    dominio_ok = userinfo.get("hd") == DOMINIO_PERMITIDO or email.endswith("@" + DOMINIO_PERMITIDO)
+    destino = session.pop("login_next", None) or url_for("index")
+    if not (userinfo.get("email_verified") and dominio_ok):
+        flash(f"Necesitás iniciar sesión con una cuenta @{DOMINIO_PERMITIDO}.")
+        return redirect(url_for("login"))
+    session["usuario"] = {"email": email, "nombre": userinfo.get("name") or email}
+    return redirect(destino)
 
 
 @app.route("/logout")
 def logout():
-    session.pop("autenticado", None)
-    return redirect(url_for("index"))
+    session.pop("usuario", None)
+    return redirect(url_for("login"))
 
 
 @app.route("/configuracion", methods=["GET", "POST"])
 def configuracion():
-    if not _autenticado():
-        return redirect(url_for("login"))
-
     conn = db.get_connection()
     if request.method == "POST":
         accion = request.form.get("accion")
