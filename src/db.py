@@ -76,6 +76,11 @@ CREATE TABLE IF NOT EXISTS credenciales_portal (
     password_cifrada BLOB,
     actualizado_en TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS palabras_clave (
+    palabra TEXT PRIMARY KEY,
+    creado_en TEXT DEFAULT CURRENT_TIMESTAMP
+);
 """
 
 UPSERT_SQL = """
@@ -331,3 +336,25 @@ def listar_credenciales(conn):
     return conn.execute(
         "SELECT portal, usuario, actualizado_en FROM credenciales_portal"
     ).fetchall()
+
+
+def listar_palabras_clave(conn):
+    """Palabras clave guardadas -- compartidas entre todos los que usan el
+    radar (antes vivian en localStorage, por lo que cada PC/usuario tenia
+    su propia lista y no se veian entre si)."""
+    rows = conn.execute(
+        "SELECT palabra FROM palabras_clave ORDER BY creado_en ASC"
+    ).fetchall()
+    return [r["palabra"] for r in rows]
+
+
+def agregar_palabra_clave(conn, palabra):
+    conn.execute(
+        "INSERT OR IGNORE INTO palabras_clave (palabra) VALUES (?)", (palabra,)
+    )
+    conn.commit()
+
+
+def eliminar_palabra_clave(conn, palabra):
+    conn.execute("DELETE FROM palabras_clave WHERE palabra=?", (palabra,))
+    conn.commit()

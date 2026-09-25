@@ -42,6 +42,11 @@
   button.submit{padding:10px 20px;border:none;border-radius:8px;background:var(--brand-teal);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;font-size:14px;}
   button.submit:hover{background:var(--brand-teal-dark);}
 
+  .q-wrap{position:relative;flex:1;}
+  .q-wrap input[type=text]{width:100%;padding-right:34px;}
+  .q-clear{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:18px;line-height:1;text-decoration:none;}
+  .q-clear:hover{background:var(--surface-2);color:var(--text);}
+
   .muted{color:var(--text-muted);}
   .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:var(--shadow);}
   table{border-collapse:collapse;width:100%;min-width:920px;font-size:13.5px;}
@@ -102,7 +107,10 @@
   <div class="filterbar">
     <form method="get">
       <input type="hidden" name="meses" value="{{ meses }}">
-      <input type="text" name="q" value="{{ q }}" placeholder="Buscar por proveedor, título, organismo o N° de proceso...">
+      <div class="q-wrap">
+        <input type="text" name="q" value="{{ q }}" placeholder="Buscar por proveedor, título, organismo o N° de proceso...">
+        {% if q %}<a class="q-clear" href="{{ url_with(q=None, pagina=None) }}" title="Borrar búsqueda" aria-label="Borrar búsqueda">&times;</a>{% endif %}
+      </div>
       <button type="submit" class="submit">Buscar</button>
     </form>
   </div>

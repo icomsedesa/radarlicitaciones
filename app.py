@@ -113,6 +113,15 @@ JURISDICCIONES = [
 
 URGENCIA_CASE = """
     CASE
+        -- BAC declara 'active' miles de procesos cuyo tenderPeriod.endDate
+        -- (nuestro fecha_apertura) ya paso -- CABA no lo actualiza aunque el
+        -- proceso siga administrativamente abierto (de ~5200 'active', solo
+        -- 1 tenia fecha futura). Para esos casos confiamos en el estado
+        -- propio de la fuente en vez de la fecha, o quedaban ocultos como
+        -- "cerrada" por default.
+        WHEN fuente = 'bac' AND estado = 'active'
+            AND (fecha_apertura IS NULL OR julianday(fecha_apertura) < julianday('now'))
+            THEN 'verde'
         WHEN fecha_apertura IS NULL THEN 'sin_fecha'
         WHEN julianday(fecha_apertura) < julianday('now') THEN 'cerrada'
         WHEN julianday(fecha_apertura) - julianday('now') <= 2 THEN 'rojo'
@@ -150,8 +159,12 @@ app.jinja_env.globals["fuente_clase"] = _fuente_clase
 
 
 def _texto_faltante(fecha_apertura, urgencia):
-    if not fecha_apertura or urgencia in ("sin_fecha", "cerrada"):
-        return "Cerrada" if urgencia == "cerrada" else None
+    if urgencia == "sin_fecha":
+        return None
+    if not fecha_apertura:
+        # 'verde' sin fecha solo pasa por el caso BAC (ver URGENCIA_CASE):
+        # activo segun la fuente, pero sin fecha de referencia real.
+        return "Cerrada" if urgencia == "cerrada" else ("Activo" if urgencia == "verde" else None)
     try:
         dt = datetime.fromisoformat(fecha_apertura)
     except ValueError:
@@ -160,7 +173,9 @@ def _texto_faltante(fecha_apertura, urgencia):
         dt = dt.astimezone().replace(tzinfo=None)
     segundos = (dt - datetime.now()).total_seconds()
     if segundos < 0:
-        return "Cerrada"
+        # idem: si el SQL igual clasifico 'verde' con la fecha ya vencida
+        # (caso BAC), evitamos mostrar "Cerrada" contradiciendo esa vigencia.
+        return "Cerrada" if urgencia == "cerrada" else "Activo"
     horas = segundos / 3600
     if horas < 1:
         return f"{max(1, int(segundos // 60))} min"
@@ -544,6 +559,29 @@ def api_contar():
 @app.route("/api/fuentes")
 def api_fuentes():
     return _por_fuente_actual()
+
+
+@app.route("/api/palabras", methods=["GET", "POST"])
+def api_palabras():
+    """Palabras clave compartidas -- reemplaza el localStorage por PC/usuario
+    (panel colaborativo: todos ven la misma lista, la agregue quien la agregue)."""
+    conn = db.get_connection()
+    if request.method == "POST":
+        palabra = (request.get_json(silent=True) or {}).get("palabra", "").strip()
+        if palabra:
+            db.agregar_palabra_clave(conn, palabra)
+    palabras = db.listar_palabras_clave(conn)
+    conn.close()
+    return {"palabras": palabras}
+
+
+@app.route("/api/palabras/<path:palabra>", methods=["DELETE"])
+def api_palabras_eliminar(palabra):
+    conn = db.get_connection()
+    db.eliminar_palabra_clave(conn, palabra)
+    palabras = db.listar_palabras_clave(conn)
+    conn.close()
+    return {"palabras": palabras}
 
 
 @app.route("/licitacion/<int:licitacion_id>")

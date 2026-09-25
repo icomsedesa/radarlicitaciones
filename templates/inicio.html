@@ -153,16 +153,15 @@
 
 <script>
 (function(){
-  const KW_KEY = 'radar_palabras_clave';
   const kwBars = document.getElementById('kw-bars');
 
-  function kwCargar(){
-    try { return JSON.parse(localStorage.getItem(KW_KEY)) || []; }
+  async function kwCargar(){
+    try { return await fetch('/api/palabras').then(r => r.json()).then(d => d.palabras || []); }
     catch (e) { return []; }
   }
 
   async function render(){
-    const palabras = kwCargar();
+    const palabras = await kwCargar();
     if (!palabras.length) {
       kwBars.innerHTML = '<div class="kw-empty">Todavía no guardaste palabras clave. Agregalas desde el buscador (panel izquierdo) y van a aparecer acá.</div>';
       return;

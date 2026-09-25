@@ -503,28 +503,30 @@
   document.getElementById('cerrar-jurisdicciones').addEventListener('click', () => modal.classList.remove('open'));
   modal.addEventListener('click', e => { if (e.target === modal) modal.classList.remove('open'); });
 
-  /* ---------- palabras clave (panel lateral) ---------- */
-  const KW_KEY = 'radar_palabras_clave';
+  /* ---------- palabras clave (panel lateral) ----------
+     Compartidas entre todos los que usan el radar (guardadas en la base,
+     no en localStorage) -- cualquiera que agrega o saca una palabra la
+     agrega o saca para todos: panel colaborativo. */
   const kwList = document.getElementById('kw-list');
   const kwInput = document.getElementById('kw-input');
   const kwAddBtn = document.getElementById('kw-add-btn');
-
-  function kwCargar(){
-    try { return JSON.parse(localStorage.getItem(KW_KEY)) || []; }
-    catch (e) { return []; }
-  }
-  function kwGuardar(palabras){
-    try { localStorage.setItem(KW_KEY, JSON.stringify(palabras)); } catch (e) {}
-  }
+  let kwPalabras = [];
 
   function kwRenderizar(){
-    const palabras = kwCargar();
+    kwList.innerHTML = '<div class="kw-empty">Cargando…</div>';
+    fetch('/api/palabras')
+      .then(r => r.json())
+      .then(data => { kwPalabras = data.palabras || []; kwPintar(); })
+      .catch(() => { kwList.innerHTML = '<div class="kw-empty">No se pudieron cargar.</div>'; });
+  }
+
+  function kwPintar(){
     kwList.innerHTML = '';
-    if (!palabras.length) {
+    if (!kwPalabras.length) {
       kwList.innerHTML = '<div class="kw-empty">Todavía no agregaste ninguna.</div>';
       return;
     }
-    palabras.forEach(palabra => {
+    kwPalabras.forEach(palabra => {
       const chip = document.createElement('div');
       chip.className = 'kw-chip';
       chip.dataset.word = palabra;
@@ -552,13 +554,15 @@
   function kwAgregar(){
     const palabra = kwInput.value.trim();
     if (!palabra) return;
-    const palabras = kwCargar();
-    if (!palabras.some(p => p.toLowerCase() === palabra.toLowerCase())) {
-      palabras.push(palabra);
-      kwGuardar(palabras);
-      kwRenderizar();
-    }
     kwInput.value = '';
+    fetch('/api/palabras', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({palabra}),
+    })
+      .then(r => r.json())
+      .then(data => { kwPalabras = data.palabras || []; kwPintar(); })
+      .catch(() => {});
   }
 
   kwAddBtn.addEventListener('click', kwAgregar);
@@ -569,9 +573,10 @@
     const chip = e.target.closest('.kw-chip');
     if (!chip) return;
     if (removeBtn) {
-      const palabras = kwCargar().filter(p => p.toLowerCase() !== chip.dataset.word.toLowerCase());
-      kwGuardar(palabras);
-      kwRenderizar();
+      fetch('/api/palabras/' + encodeURIComponent(chip.dataset.word), {method: 'DELETE'})
+        .then(r => r.json())
+        .then(data => { kwPalabras = data.palabras || []; kwPintar(); })
+        .catch(() => {});
       return;
     }
     currentPage = 1;
@@ -580,8 +585,24 @@
     aplicar(true);
   });
 
+  function migrarPalabrasLocales(){
+    // Antes de esto, las palabras clave vivian en localStorage (por PC, no
+    // compartidas). Migracion de una sola vez: si este navegador tenia
+    // guardadas, las sube a la base compartida y limpia la clave vieja.
+    let legado = [];
+    try { legado = JSON.parse(localStorage.getItem('radar_palabras_clave')) || []; }
+    catch (e) { legado = []; }
+    if (!legado.length) return Promise.resolve();
+    localStorage.removeItem('radar_palabras_clave');
+    return Promise.all(legado.map(palabra => fetch('/api/palabras', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({palabra}),
+    }))).catch(() => {});
+  }
+
   actualizarQClear();
-  kwRenderizar();
+  migrarPalabrasLocales().then(kwRenderizar);
 })();
 </script>
 </body>
