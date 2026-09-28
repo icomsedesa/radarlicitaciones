@@ -16,6 +16,8 @@ que navegar la UI real cada vez).
 Uso:
     python -m src.connectors.bac_ofertas
 """
+from pathlib import Path
+
 import re
 
 from playwright.sync_api import sync_playwright
@@ -27,22 +29,48 @@ RE_OFERTA = re.compile(
     r"([A-ZÁÉÍÓÚÑ0-9.,&'()/ ]{3,90}?)\s*-\s*(\d{11})\s*\n?\s*Total:\s*ARS\s*([\d.]+,\d{2})"
 )
 
+SALIDA_DEBUG = Path(__file__).resolve().parent.parent.parent / "data" / "explorar"
+
 
 def _limpiar(texto: str) -> str:
     return re.sub(r"\s+", " ", texto).strip()
 
 
+def _volcar_debug(page, nombre: str):
+    SALIDA_DEBUG.mkdir(parents=True, exist_ok=True)
+    try:
+        page.screenshot(path=str(SALIDA_DEBUG / f"{nombre}.png"), full_page=True)
+        (SALIDA_DEBUG / f"{nombre}.html").write_text(page.content(), encoding="utf-8")
+        print(f"  (debug) guardado {SALIDA_DEBUG / nombre}.png/.html")
+    except Exception as e:
+        print(f"  (debug) no se pudo volcar '{nombre}': {e}")
+
+
 def _listar_procesos_ofertados(page) -> list[str]:
     """Numero de proceso de cada fila de "Ofertas confirmadas" -- son los
     unicos procesos con cuadro comparativo visible para esta cuenta."""
-    if page.get_by_text("Proceso de compra").count() == 0:
-        # el bloque puede arrancar colapsado -- se despliega con un click
-        # en su encabezado.
-        page.get_by_text(re.compile(r"Ofertas confirmadas")).first.click()
-        page.wait_for_timeout(800)
+    _volcar_debug(page, "bac_ofertas_0_escritorio")
+
+    # el escritorio es un acordeon anidado: "Procesos de compra" puede
+    # arrancar colapsado, y "Ofertas confirmadas" (adentro) tambien -- se
+    # intenta expandir los dos, tolerando que alguno ya este abierto.
+    for etiqueta in ("Procesos de compra", "Ofertas confirmadas"):
+        if page.get_by_text("Proceso de compra", exact=False).count() > 0:
+            break  # la tabla ya esta visible, no hace falta seguir clickeando
+        candidato = page.get_by_text(re.compile(re.escape(etiqueta)), exact=False).first
+        try:
+            candidato.click(timeout=3000)
+            page.wait_for_timeout(800)
+        except Exception as e:
+            print(f"  (debug) no se pudo clickear '{etiqueta}': {e}")
+
+    _volcar_debug(page, "bac_ofertas_1_post_expandir")
+
+    todos_los_links = page.locator("a").all()
+    print(f"  (debug) {len(todos_los_links)} links totales en la pagina")
 
     numeros = []
-    for link in page.locator("a").all():
+    for link in todos_los_links:
         texto = _limpiar(link.inner_text())
         if RE_NUMERO_PROCESO.match(texto):
             numeros.append(texto)
