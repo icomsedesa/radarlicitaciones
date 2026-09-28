@@ -94,7 +94,7 @@ def fetch_todas_las_ofertas(headless: bool = True) -> list[dict]:
             # redirect final post-login (paso, una corrida real quedo con
             # la pagina "todavia navegando" y 0 links) -- se espera
             # explicitamente el contenido real del escritorio.
-            page.wait_for_selector('[id*="TablaTareaOfertasConfirmadas"]', timeout=20000)
+            page.wait_for_selector('[id*="TablaTareaOfertasConfirmadas"]', state="attached", timeout=20000)
             url_escritorio = page.url
 
             numeros = _listar_procesos_ofertados(page)
@@ -131,13 +131,13 @@ def fetch_todas_las_ofertas(headless: bool = True) -> list[dict]:
                     # las paginas ASP.NET de por medio son postback-heavy y
                     # el historial del navegador no siempre las revive bien.
                     page.goto(url_escritorio, wait_until="domcontentloaded")
-                    page.wait_for_selector('[id*="TablaTareaOfertasConfirmadas"]', timeout=20000)
+                    page.wait_for_selector('[id*="TablaTareaOfertasConfirmadas"]', state="attached", timeout=20000)
                 except Exception as e:
                     print(f"  ! error en {numero}: {e}")
                     volcar_debug(page, f"bac_ofertas_error_{numero}")
                     try:
                         page.goto(url_escritorio, wait_until="domcontentloaded")
-                        page.wait_for_selector('[id*="TablaTareaOfertasConfirmadas"]', timeout=20000)
+                        page.wait_for_selector('[id*="TablaTareaOfertasConfirmadas"]', state="attached", timeout=20000)
                     except Exception as e2:
                         print(f"  ! no se pudo volver al escritorio, se corta la corrida: {e2}")
                         break

@@ -48,15 +48,25 @@ def _listar_procesos_participados(page) -> list[str]:
     page.wait_for_load_state("networkidle")
     volcar_debug(page, "comprar_ar_ofertas_1_busqueda")
 
+    # el campo de fecha es un widget DevExpress (ASPxDateEdit) -- el
+    # <label for=...> no apunta al id real del <input> (termina en "_I"),
+    # asi que get_by_label no lo encuentra. "Buscar" tampoco es un
+    # <button>, es un <a> con role "link".
     fecha_desde = f"01/01/{datetime.now().year - ANIOS_ATRAS}"
     try:
-        campo = page.get_by_label(re.compile("Fecha creaci.n desde", re.I))
+        campo = page.locator('input[id$="devDteEdtFechaDesde_I"]')
         campo.fill(fecha_desde)
-        page.get_by_role("button", name=re.compile(r"^\s*Buscar\s*$", re.I)).click()
+        campo.press("Tab")  # dispara el blur -- el widget sincroniza su valor interno recien ahi
+        page.get_by_role("link", name=re.compile(r"^\s*Buscar\s*$", re.I)).click()
         page.wait_for_load_state("networkidle")
     except Exception as e:
         print(f"  ! no se pudo acotar por fecha ({e}) -- sigue con el listado sin filtrar")
     volcar_debug(page, "comprar_ar_ofertas_2_post_filtro")
+    # se guarda ACA (pagina 1 de resultados) -- no despues de recorrer la
+    # paginacion, que dejaria la pagina posicionada en la ULTIMA pagina en
+    # vez de la primera (asi volvia el goto() entre procesos, por eso el
+    # primer numero de la lista tiraba timeout: no estaba en esa pagina).
+    url_resultados = page.url
 
     numeros = []
     pagina = 1
@@ -80,7 +90,7 @@ def _listar_procesos_participados(page) -> list[str]:
         if n not in vistos:
             vistos.add(n)
             resultado.append(n)
-    return resultado
+    return resultado, url_resultados
 
 
 def fetch_todas_las_ofertas(headless: bool = True) -> list[dict]:
@@ -100,11 +110,11 @@ def fetch_todas_las_ofertas(headless: bool = True) -> list[dict]:
             page.wait_for_load_state("networkidle")
             volcar_debug(page, "comprar_ar_ofertas_0_escritorio")
 
-            numeros = _listar_procesos_participados(page)
-            # se vuelve a esta URL (la de resultados ya filtrados) entre
-            # procesos, no a la del escritorio -- evita rehacer la busqueda
-            # (click + filtro por fecha) en cada iteracion.
-            url_resultados = page.url
+            # se vuelve a url_resultados (pagina 1 de la busqueda ya
+            # filtrada) entre procesos, no a la del escritorio -- evita
+            # rehacer la busqueda (click + filtro por fecha) en cada
+            # iteracion.
+            numeros, url_resultados = _listar_procesos_participados(page)
             print(f"  {len(numeros)} procesos participados desde {datetime.now().year - ANIOS_ATRAS}: {numeros}")
 
             for i, numero in enumerate(numeros):
