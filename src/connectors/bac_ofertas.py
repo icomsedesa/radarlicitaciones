@@ -99,6 +99,28 @@ def _extraer_cuadro(page) -> list[dict]:
     return ofertas
 
 
+def _asegurar_visible(page, link, intentos_max: int = 4):
+    """El escritorio de BAC es un accordion en DOS niveles (Procesos de
+    compra > Ofertas confirmadas) -- el texto de cada link ya esta en el
+    DOM apenas carga la pagina, pero no es clickeable hasta que ambos
+    niveles esten expandidos visualmente. El estado inicial no es
+    consistente: recien logueado arranca expandido, pero un reload (el
+    goto() de vuelta al escritorio entre procesos) lo resetea colapsado
+    -- por eso se chequea la visibilidad en cada intento en vez de asumir
+    un estado fijo (evita clickear -y sin querer volver a colapsar- algo
+    que ya estaba abierto)."""
+    etiquetas = ("Procesos de compra", "Ofertas confirmadas")
+    for i in range(intentos_max):
+        if link.is_visible():
+            return
+        etiqueta = etiquetas[i % len(etiquetas)]
+        try:
+            page.get_by_text(etiqueta, exact=False).first.click(timeout=3000)
+            page.wait_for_timeout(500)
+        except Exception:
+            pass
+
+
 def fetch_todas_las_ofertas(headless: bool = True) -> list[dict]:
     """Devuelve [{"numero_proceso": ..., "ofertas": [...]}, ...] para cada
     proceso con oferta confirmada de la cuenta configurada. Cada oferta es
@@ -124,7 +146,9 @@ def fetch_todas_las_ofertas(headless: bool = True) -> list[dict]:
                     # mismo numero de proceso puede repetirse en otras
                     # secciones del escritorio (ej. "Procesos en los que
                     # participo"), y un click ahi no lleva al mismo lugar.
-                    tabla.get_by_role("link", name=numero, exact=True).click()
+                    link = tabla.get_by_role("link", name=numero, exact=True)
+                    _asegurar_visible(page, link)
+                    link.click()
                     page.wait_for_load_state("networkidle")
                     if i == 0:
                         _volcar_debug(page, "bac_ofertas_2_pliego")
