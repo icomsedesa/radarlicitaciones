@@ -14,8 +14,12 @@
   *{box-sizing:border-box;}
   body{margin:0;background:var(--bg);color:var(--text);font-family:'Public Sans',-apple-system,'Segoe UI',sans-serif;font-size:15px;}
   .topbar{background:linear-gradient(135deg,var(--brand-teal),var(--brand-teal-dark));color:#fff;padding:18px 24px;}
-  .topbar-inner{max-width:900px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;}
+  .topbar-inner{max-width:900px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;}
   h1{font-family:'Poppins',sans-serif;font-weight:800;font-size:24px;margin:0;text-transform:uppercase;}
+  .topnav{display:flex;align-items:center;gap:16px;}
+  .topnav a{color:rgba(255,255,255,.85);font-size:13px;text-decoration:underline;text-underline-offset:2px;}
+  .topnav a:hover{color:#fff;}
+  .topnav .user{color:rgba(255,255,255,.55);font-size:12px;margin-left:8px;}
   a.logout{color:rgba(255,255,255,.85);font-size:13px;text-decoration:underline;}
   .page{max-width:900px;margin:0 auto;padding:28px 24px 64px;}
   .flash{background:var(--sem-green-soft);color:var(--sem-green);padding:10px 14px;border-radius:8px;font-size:13.5px;margin-bottom:18px;font-weight:600;}
@@ -41,7 +45,13 @@
 <div class="topbar">
   <div class="topbar-inner">
     <h1>Configuración</h1>
-    <a class="logout" href="{{ url_for('logout') }}">Cerrar sesión</a>
+    <div class="topnav">
+      <a href="{{ url_for('index') }}">Buscador</a>
+      <a href="{{ url_for('inicio') }}">Inicio</a>
+      <a href="{{ url_for('comparativas') }}">Comparativas</a>
+      <span class="user">{{ session.usuario.email }}</span>
+      <a class="logout" href="{{ url_for('logout') }}">Cerrar sesión</a>
+    </div>
   </div>
 </div>
 <div class="page">
