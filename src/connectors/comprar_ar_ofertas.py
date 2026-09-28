@@ -43,6 +43,19 @@ RE_NUMERO_PROCESO = re.compile(r"^\d+(?:/\d+)?-\d+-[A-Z]{3}\d{2}$")
 ANIOS_ATRAS = 1  # ano actual + esta cantidad hacia atras
 
 
+def _esperar_sin_overlay(page, timeout: int = 15000):
+    """Los postbacks AJAX (UpdatePanel) de esta pagina muestran un overlay
+    semitransparente (#divPanelFondoTransparente) mientras cargan -- si se
+    clickea la pagina siguiente mientras sigue visible, el click queda
+    bloqueado ("intercepts pointer events") hasta que se agota el timeout.
+    "networkidle" no alcanza para detectar esto (las transiciones/timers
+    del overlay no necesariamente generan trafico de red)."""
+    try:
+        page.wait_for_selector("#divPanelFondoTransparente", state="hidden", timeout=timeout)
+    except Exception:
+        pass  # si no aparecio o ya esta oculto, no hay nada que esperar
+
+
 def _listar_procesos_participados(page) -> list[str]:
     page.get_by_text(re.compile("Procesos en los cuales particip", re.I)).first.click()
     page.wait_for_load_state("networkidle")
@@ -59,6 +72,7 @@ def _listar_procesos_participados(page) -> list[str]:
         campo.press("Tab")  # dispara el blur -- el widget sincroniza su valor interno recien ahi
         page.get_by_role("link", name=re.compile(r"^\s*Buscar\s*$", re.I)).click()
         page.wait_for_load_state("networkidle")
+        _esperar_sin_overlay(page)
     except Exception as e:
         print(f"  ! no se pudo acotar por fecha ({e}) -- sigue con el listado sin filtrar")
     volcar_debug(page, "comprar_ar_ofertas_2_post_filtro")
@@ -78,8 +92,10 @@ def _listar_procesos_participados(page) -> list[str]:
         siguiente = page.get_by_role("link", name=str(pagina + 1), exact=True)
         if siguiente.count() == 0:
             break
+        _esperar_sin_overlay(page)
         siguiente.click()
         page.wait_for_load_state("networkidle")
+        _esperar_sin_overlay(page)
         pagina += 1
         if pagina > 30:  # tope de seguridad, no debería hacer falta
             break
@@ -119,13 +135,16 @@ def fetch_todas_las_ofertas(headless: bool = True) -> list[dict]:
 
             for i, numero in enumerate(numeros):
                 try:
+                    _esperar_sin_overlay(page)
                     page.get_by_role("link", name=numero, exact=True).first.click()
                     page.wait_for_load_state("networkidle")
+                    _esperar_sin_overlay(page)
                     if i == 0:
                         volcar_debug(page, "comprar_ar_ofertas_3_pliego")
 
                     page.get_by_role("link", name=re.compile("Ver cuadro comparativo", re.I)).click()
                     page.wait_for_load_state("networkidle")
+                    _esperar_sin_overlay(page)
                     if i == 0:
                         volcar_debug(page, "comprar_ar_ofertas_4_cuadro_comparativo")
 
@@ -139,6 +158,7 @@ def fetch_todas_las_ofertas(headless: bool = True) -> list[dict]:
 
                     page.goto(url_resultados, wait_until="domcontentloaded")
                     page.wait_for_load_state("networkidle")
+                    _esperar_sin_overlay(page)
                 except Exception as e:
                     print(f"  ! error en {numero}: {e}")
                     volcar_debug(page, f"comprar_ar_ofertas_error_{numero.replace('/', '_')}")
