@@ -16,34 +16,14 @@ que navegar la UI real cada vez).
 Uso:
     python -m src.connectors.bac_ofertas
 """
-from pathlib import Path
-
 import re
 
 from playwright.sync_api import sync_playwright
 
+from src.connectors.ofertas_comunes import extraer_cuadro, limpiar, volcar_debug
 from src.connectors.portal_auth import login_bac, obtener_credencial
 
 RE_NUMERO_PROCESO = re.compile(r"^\d+-\d+-[A-Z]{3}\d{2}$")
-RE_OFERTA = re.compile(
-    r"([A-ZÁÉÍÓÚÑ0-9.,&'()/ ]{3,90}?)\s*-\s*(\d{11})\s*\n?\s*Total:\s*ARS\s*([\d.]+,\d{2})"
-)
-
-SALIDA_DEBUG = Path(__file__).resolve().parent.parent.parent / "data" / "explorar"
-
-
-def _limpiar(texto: str) -> str:
-    return re.sub(r"\s+", " ", texto).strip()
-
-
-def _volcar_debug(page, nombre: str):
-    SALIDA_DEBUG.mkdir(parents=True, exist_ok=True)
-    try:
-        page.screenshot(path=str(SALIDA_DEBUG / f"{nombre}.png"), full_page=True)
-        (SALIDA_DEBUG / f"{nombre}.html").write_text(page.content(), encoding="utf-8")
-        print(f"  (debug) guardado {SALIDA_DEBUG / nombre}.png/.html")
-    except Exception as e:
-        print(f"  (debug) no se pudo volcar '{nombre}': {e}")
 
 
 def _listar_procesos_ofertados(page) -> list[str]:
@@ -57,12 +37,12 @@ def _listar_procesos_ofertados(page) -> list[str]:
     "TablaTareaOfertasConfirmadas", asi que se puede acotar la busqueda de
     links a esa tabla puntual en vez de barrer toda la pagina (que
     mezclaba tambien Invitaciones/Procesos en los que participo/etc.)."""
-    _volcar_debug(page, "bac_ofertas_0_escritorio")
+    volcar_debug(page, "bac_ofertas_0_escritorio")
 
     tabla = page.locator('[id*="TablaTareaOfertasConfirmadas"]')
     numeros = []
     for link in tabla.locator("a").all():
-        texto = _limpiar(link.inner_text())
+        texto = limpiar(link.inner_text())
         if RE_NUMERO_PROCESO.match(texto):
             numeros.append(texto)
     # dedupe preservando orden
@@ -73,30 +53,6 @@ def _listar_procesos_ofertados(page) -> list[str]:
             vistos.add(n)
             resultado.append(n)
     return resultado
-
-
-def _extraer_cuadro(page) -> list[dict]:
-    contenido = page.inner_text("body")
-    ofertas = []
-    for m in RE_OFERTA.finditer(contenido):
-        nombre, cuit, monto_txt = m.groups()
-        monto = float(monto_txt.replace(".", "").replace(",", "."))
-        ofertas.append({
-            "proveedor": nombre.strip(" -"),
-            "cuit": cuit,
-            "monto": monto,
-            "moneda": "ARS",
-            "fecha_oferta": None,
-            "es_ganadora": False,
-        })
-    if ofertas:
-        # marca la de menor monto como referencia -- igual que en el resto
-        # de la app, NO implica que sea la adjudicataria real (eso depende
-        # tambien de criterios tecnicos).
-        minimo = min(o["monto"] for o in ofertas)
-        for o in ofertas:
-            o["es_ganadora"] = o["monto"] == minimo
-    return ofertas
 
 
 def _asegurar_visible(page, link, intentos_max: int = 4):
@@ -134,6 +90,11 @@ def fetch_todas_las_ofertas(headless: bool = True) -> list[dict]:
         page = browser.new_page()
         try:
             login_bac(page, usuario, password)
+            # "networkidle" a veces vuelve antes de que termine un
+            # redirect final post-login (paso, una corrida real quedo con
+            # la pagina "todavia navegando" y 0 links) -- se espera
+            # explicitamente el contenido real del escritorio.
+            page.wait_for_selector('[id*="TablaTareaOfertasConfirmadas"]', timeout=20000)
             url_escritorio = page.url
 
             numeros = _listar_procesos_ofertados(page)
@@ -151,29 +112,35 @@ def fetch_todas_las_ofertas(headless: bool = True) -> list[dict]:
                     link.click()
                     page.wait_for_load_state("networkidle")
                     if i == 0:
-                        _volcar_debug(page, "bac_ofertas_2_pliego")
+                        volcar_debug(page, "bac_ofertas_2_pliego")
 
                     page.get_by_role("link", name=re.compile("Ver cuadro comparativo", re.I)).click()
                     page.wait_for_load_state("networkidle")
                     if i == 0:
-                        _volcar_debug(page, "bac_ofertas_3_cuadro_comparativo")
+                        volcar_debug(page, "bac_ofertas_3_cuadro_comparativo")
 
-                    ofertas = _extraer_cuadro(page)
+                    ofertas = extraer_cuadro(page)
                     if ofertas:
                         resultado.append({"numero_proceso": numero, "ofertas": ofertas})
                         print(f"    {numero}: {len(ofertas)} ofertas")
                     else:
                         print(f"    {numero}: no se pudo extraer ninguna oferta (revisar selectores)")
-                        _volcar_debug(page, f"bac_ofertas_sin_ofertas_{numero}")
+                        volcar_debug(page, f"bac_ofertas_sin_ofertas_{numero}")
 
                     # se vuelve al escritorio por URL (no con go_back) --
                     # las paginas ASP.NET de por medio son postback-heavy y
                     # el historial del navegador no siempre las revive bien.
                     page.goto(url_escritorio, wait_until="domcontentloaded")
+                    page.wait_for_selector('[id*="TablaTareaOfertasConfirmadas"]', timeout=20000)
                 except Exception as e:
                     print(f"  ! error en {numero}: {e}")
-                    _volcar_debug(page, f"bac_ofertas_error_{numero}")
-                    page.goto(url_escritorio, wait_until="domcontentloaded")
+                    volcar_debug(page, f"bac_ofertas_error_{numero}")
+                    try:
+                        page.goto(url_escritorio, wait_until="domcontentloaded")
+                        page.wait_for_selector('[id*="TablaTareaOfertasConfirmadas"]', timeout=20000)
+                    except Exception as e2:
+                        print(f"  ! no se pudo volver al escritorio, se corta la corrida: {e2}")
+                        break
         finally:
             browser.close()
 
