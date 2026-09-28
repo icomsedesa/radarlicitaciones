@@ -48,34 +48,24 @@ def _volcar_debug(page, nombre: str):
 
 def _listar_procesos_ofertados(page) -> list[str]:
     """Numero de proceso de cada fila de "Ofertas confirmadas" -- son los
-    unicos procesos con cuadro comparativo visible para esta cuenta."""
+    unicos procesos con cuadro comparativo visible para esta cuenta.
+
+    Los datos del escritorio ya estan en el DOM al cargar la pagina -- el
+    "+"/"-" de cada seccion es solo un collapse visual (CSS), no hace
+    falta clickear nada para leerlos. Confirmado contra el HTML real: el
+    control ASP.NET de "Ofertas confirmadas" tiene un id que contiene
+    "TablaTareaOfertasConfirmadas", asi que se puede acotar la busqueda de
+    links a esa tabla puntual en vez de barrer toda la pagina (que
+    mezclaba tambien Invitaciones/Procesos en los que participo/etc.)."""
     _volcar_debug(page, "bac_ofertas_0_escritorio")
 
-    # el escritorio es un acordeon anidado: "Procesos de compra" puede
-    # arrancar colapsado, y "Ofertas confirmadas" (adentro) tambien -- se
-    # intenta expandir los dos, tolerando que alguno ya este abierto.
-    for etiqueta in ("Procesos de compra", "Ofertas confirmadas"):
-        if page.get_by_text("Proceso de compra", exact=False).count() > 0:
-            break  # la tabla ya esta visible, no hace falta seguir clickeando
-        candidato = page.get_by_text(re.compile(re.escape(etiqueta)), exact=False).first
-        try:
-            candidato.click(timeout=3000)
-            page.wait_for_timeout(800)
-        except Exception as e:
-            print(f"  (debug) no se pudo clickear '{etiqueta}': {e}")
-
-    _volcar_debug(page, "bac_ofertas_1_post_expandir")
-
-    todos_los_links = page.locator("a").all()
-    print(f"  (debug) {len(todos_los_links)} links totales en la pagina")
-
+    tabla = page.locator('[id*="TablaTareaOfertasConfirmadas"]')
     numeros = []
-    for link in todos_los_links:
+    for link in tabla.locator("a").all():
         texto = _limpiar(link.inner_text())
         if RE_NUMERO_PROCESO.match(texto):
             numeros.append(texto)
-    # dedupe preservando orden (puede aparecer repetido si otro bloque del
-    # escritorio tambien lista el mismo proceso)
+    # dedupe preservando orden
     vistos = set()
     resultado = []
     for n in numeros:
@@ -127,12 +117,22 @@ def fetch_todas_las_ofertas(headless: bool = True) -> list[dict]:
             numeros = _listar_procesos_ofertados(page)
             print(f"  {len(numeros)} procesos con oferta confirmada de esta cuenta: {numeros}")
 
-            for numero in numeros:
+            tabla = page.locator('[id*="TablaTareaOfertasConfirmadas"]')
+            for i, numero in enumerate(numeros):
                 try:
-                    page.get_by_role("link", name=numero, exact=True).first.click()
+                    # acotado a la tabla de "Ofertas confirmadas" -- el
+                    # mismo numero de proceso puede repetirse en otras
+                    # secciones del escritorio (ej. "Procesos en los que
+                    # participo"), y un click ahi no lleva al mismo lugar.
+                    tabla.get_by_role("link", name=numero, exact=True).click()
                     page.wait_for_load_state("networkidle")
+                    if i == 0:
+                        _volcar_debug(page, "bac_ofertas_2_pliego")
+
                     page.get_by_role("link", name=re.compile("Ver cuadro comparativo", re.I)).click()
                     page.wait_for_load_state("networkidle")
+                    if i == 0:
+                        _volcar_debug(page, "bac_ofertas_3_cuadro_comparativo")
 
                     ofertas = _extraer_cuadro(page)
                     if ofertas:
@@ -140,6 +140,7 @@ def fetch_todas_las_ofertas(headless: bool = True) -> list[dict]:
                         print(f"    {numero}: {len(ofertas)} ofertas")
                     else:
                         print(f"    {numero}: no se pudo extraer ninguna oferta (revisar selectores)")
+                        _volcar_debug(page, f"bac_ofertas_sin_ofertas_{numero}")
 
                     # se vuelve al escritorio por URL (no con go_back) --
                     # las paginas ASP.NET de por medio son postback-heavy y
@@ -147,6 +148,7 @@ def fetch_todas_las_ofertas(headless: bool = True) -> list[dict]:
                     page.goto(url_escritorio, wait_until="domcontentloaded")
                 except Exception as e:
                     print(f"  ! error en {numero}: {e}")
+                    _volcar_debug(page, f"bac_ofertas_error_{numero}")
                     page.goto(url_escritorio, wait_until="domcontentloaded")
         finally:
             browser.close()
