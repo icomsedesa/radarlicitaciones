@@ -152,18 +152,35 @@ def _listar_procesos_participados(page) -> list[tuple[str, int]]:
     return resultado
 
 
-def _ubicar_en_listado(page, url_escritorio: str, pagina: int, reintentos: int = 1) -> bool:
+def _sesion_vencida(page) -> bool:
+    """Confirmado con una corrida real: la sesion de COMPR.AR puede vencer
+    a mitad de la corrida (mas probable cuanto mas tarda, y volver a
+    entrar por el escritorio antes de cada proceso no es precisamente
+    rapido) -- entonces goto(url_escritorio) redirige a Login.aspx en vez
+    de mostrar el escritorio, y todo lo que sigue fallaba en cadena
+    (timeouts esperando un texto que nunca iba a aparecer)."""
+    return "Login.aspx" in page.url
+
+
+def _ubicar_en_listado(page, usuario: str, password: str, url_escritorio: str, pagina: int, reintentos: int = 1) -> bool:
     """Se posiciona en la pagina `pagina` del listado, partiendo siempre
     del escritorio (URL estable, a diferencia de la de resultados -- ver
     docstring de _listar_procesos_participados). Mas lento que volver
     "para atras" entre procesos, pero cada paso (revisitar el escritorio,
     clickear "Procesos en los cuales participé", avanzar de a una pagina)
     ya esta probado que funciona de forma confiable, a diferencia de
-    goto()/go_back() sobre el listado en si."""
+    goto()/go_back() sobre el listado en si. Si la sesion vencio, se
+    vuelve a loguear antes de reintentar."""
     for intento in range(reintentos + 1):
         try:
             page.goto(url_escritorio, wait_until="domcontentloaded")
             page.wait_for_load_state("networkidle")
+            if _sesion_vencida(page):
+                print("  ! la sesion parece haber vencido -- reingresando")
+                login_comprar_ar(page, usuario, password)
+                page.wait_for_load_state("networkidle")
+                page.goto(url_escritorio, wait_until="domcontentloaded")
+                page.wait_for_load_state("networkidle")
             _entrar_a_listado(page)
             _avanzar_a_pagina(page, pagina)
             return True
@@ -203,7 +220,7 @@ def fetch_todas_las_ofertas(headless: bool = True) -> list[dict]:
                     # se re-ubica desde el escritorio antes de CADA proceso
                     # (mas lento que volver "para atras", pero confiable --
                     # ver _ubicar_en_listado).
-                    if not _ubicar_en_listado(page, url_escritorio, pagina):
+                    if not _ubicar_en_listado(page, usuario, password, url_escritorio, pagina, reintentos=2):
                         print(f"  ! no se pudo ubicar el listado para {numero}, se lo salta")
                         continue
 
