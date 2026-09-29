@@ -223,27 +223,38 @@ def fetch_todas_las_ofertas(headless: bool = True, max_procesos: int | None = No
                 try:
                     if i > 0:
                         # pausa entre procesos -- el portal mostro
-                        # comportamiento raro (redirecciones que chocan
-                        # entre si) bajo navegacion automatica muy seguida.
-                        page.wait_for_timeout(1500)
-                    # se re-ubica desde el escritorio antes de CADA proceso
-                    # (mas lento que volver "para atras", pero confiable --
-                    # ver _ubicar_en_listado).
-                    if not _ubicar_en_listado(page, pagina):
-                        print(f"  ! no se pudo ubicar el listado para {numero}, se lo salta")
-                        continue
+                        # comportamiento raro bajo navegacion automatica
+                        # muy seguida (postbacks/overlays que no llegan a
+                        # asentarse antes del siguiente click).
+                        page.wait_for_timeout(4000)
 
-                    _esperar_sin_overlay(page)
-                    # aca especificamente el overlay quedo tapando el link
-                    # sin despejarse en 45s pese al wait previo (visto en
-                    # una corrida real) -- como ya se confirma que el link
-                    # correcto esta ahi (aparece en el log de Playwright
-                    # con su href real), se saltea el chequeo de
-                    # tapado/visible para este click puntual: el overlay es
-                    # puramente decorativo, no bloquea nada funcional.
-                    page.get_by_role("link", name=numero, exact=True).first.click(force=True)
-                    page.wait_for_load_state("networkidle")
-                    _esperar_sin_overlay(page)
+                    # ubicarse + abrir el proceso, con un par de
+                    # reintentos completos (re-ubicar de nuevo desde el
+                    # escritorio) -- vimos que el click al link a veces
+                    # falla por el overlay/DOM reasentandose, y click al
+                    # link muerto no se arregla clickeando de nuevo el
+                    # MISMO elemento (queda detached), hace falta volver a
+                    # ubicarse para tener un elemento fresco.
+                    abierto = False
+                    for intento_apertura in range(2):
+                        if not _ubicar_en_listado(page, pagina):
+                            print(f"  ! no se pudo ubicar el listado para {numero}, se lo salta")
+                            break
+                        try:
+                            _esperar_sin_overlay(page)
+                            # el overlay decorativo (#divPanelFondoTransparente)
+                            # a veces queda tapando el link sin despejarse a
+                            # tiempo -- se saltea ese chequeo con force=True.
+                            page.get_by_role("link", name=numero, exact=True).first.click(force=True)
+                            page.wait_for_load_state("networkidle")
+                            _esperar_sin_overlay(page)
+                            abierto = True
+                            break
+                        except Exception as e:
+                            print(f"  ! no se pudo abrir {numero} (intento {intento_apertura + 1}): {e}")
+                            page.wait_for_timeout(3000)
+                    if not abierto:
+                        continue
                     # espera el contenido real del detalle (no solo
                     # "networkidle", que en un par de corridas volvio antes
                     # de que la navegacion terminara realmente).
