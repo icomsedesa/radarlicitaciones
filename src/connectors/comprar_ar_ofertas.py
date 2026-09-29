@@ -11,19 +11,25 @@ parseo compartido.
 A diferencia de BAC (una lista corta ya armada, "Ofertas confirmadas"
 con 5 procesos), en COMPR.AR el punto de entrada es "Procesos en los
 cuales participé" en Mi escritorio, que lleva a un buscador
-(BusquedaAvanzadaProveedor.aspx) con TODO el historico de la cuenta (92
-procesos desde 2017 al conectarlo) -- se acota por fecha de creacion a
-los ultimos ANIOS_ATRAS años para no procesar una decada de historial.
+(BusquedaAvanzadaProveedor.aspx) con TODO el historico de la cuenta
+(~100 procesos desde 2017 al conectarlo). El filtro de fecha del propio
+buscador (un widget DevExpress) resulto poco confiable -- se probo y no
+acotaba el resultado real pese a no tirar error -- asi que en cambio se
+filtra del lado nuestro: el numero de proceso ya trae el año codificado
+al final ("LPU26" = 2026, "CDI18" = 2018), se recorren TODAS las paginas
+del listado sin filtrar y se descartan los que no caen en los ultimos
+ANIOS_ATRAS+1 años antes de procesarlos uno por uno.
 
 Flujo verificado a mano (28-sep-2026): Mi escritorio -> "Procesos en los
-cuales participé" -> buscador con fecha desde/hasta + resultados -> click
-en el numero de proceso -> detalle del proceso -> link "Ver cuadro
+cuales participé" -> buscador con resultados (paginado) -> click en el
+numero de proceso -> detalle del proceso -> link "Ver cuadro
 comparativo" -> VerCuadroComparativo (URLs con un token de sesion opaco
 por `qs=`, no hay forma de armarlas directo -- hay que navegar la UI real
-cada vez). Los selectores del buscador (campo de fecha, boton "Buscar",
-paginacion) son una primera aproximacion, no verificada linea por linea
-contra el HTML real como si se hizo para BAC -- si algo no matchea, este
-script vuelca captura + HTML en cada paso para poder ajustarlo.
+cada vez). Portal con bastante latencia/flakeo bajo uso real (timeouts
+intermitentes, un overlay de carga AJAX que a veces tapa los links) -- el
+script reintenta la vuelta al listado antes de darse por vencido con un
+proceso puntual, y vuelca captura + HTML en cada paso para poder
+ajustar si algo no matchea.
 
 Uso:
     python -m src.connectors.comprar_ar_ofertas
@@ -56,32 +62,31 @@ def _esperar_sin_overlay(page, timeout: int = 15000):
         pass  # si no aparecio o ya esta oculto, no hay nada que esperar
 
 
+def _año_de_numero(numero: str) -> int:
+    """"96-0018-LPU17" -> 2017, "509/3-0009-LPU26" -> 2026 -- los dos
+    digitos finales del numero de proceso son el año (siempre 20XX en
+    los datos vistos hasta ahora)."""
+    m = re.search(r"[A-Z]{3}(\d{2})$", numero)
+    return 2000 + int(m.group(1)) if m else 0
+
+
 def _listar_procesos_participados(page) -> list[str]:
     page.get_by_text(re.compile("Procesos en los cuales particip", re.I)).first.click()
     page.wait_for_load_state("networkidle")
+    _esperar_sin_overlay(page)
     volcar_debug(page, "comprar_ar_ofertas_1_busqueda")
-
-    # el campo de fecha es un widget DevExpress (ASPxDateEdit) -- el
-    # <label for=...> no apunta al id real del <input> (termina en "_I"),
-    # asi que get_by_label no lo encuentra. "Buscar" tampoco es un
-    # <button>, es un <a> con role "link".
-    fecha_desde = f"01/01/{datetime.now().year - ANIOS_ATRAS}"
-    try:
-        campo = page.locator('input[id$="devDteEdtFechaDesde_I"]')
-        campo.fill(fecha_desde)
-        campo.press("Tab")  # dispara el blur -- el widget sincroniza su valor interno recien ahi
-        page.get_by_role("link", name=re.compile(r"^\s*Buscar\s*$", re.I)).click()
-        page.wait_for_load_state("networkidle")
-        _esperar_sin_overlay(page)
-    except Exception as e:
-        print(f"  ! no se pudo acotar por fecha ({e}) -- sigue con el listado sin filtrar")
-    volcar_debug(page, "comprar_ar_ofertas_2_post_filtro")
     # se guarda ACA (pagina 1 de resultados) -- no despues de recorrer la
     # paginacion, que dejaria la pagina posicionada en la ULTIMA pagina en
     # vez de la primera (asi volvia el goto() entre procesos, por eso el
     # primer numero de la lista tiraba timeout: no estaba en esa pagina).
     url_resultados = page.url
 
+    # El filtro de fecha del buscador (widget DevExpress) resulto poco
+    # confiable: se probo `fill()` + Tab sobre el input real y clickear
+    # "Buscar" (un <a>, no un <button>) sin error, pero el resultado
+    # seguia sin acotarse -- asi que en vez de forcejear mas con la UI se
+    # trae TODO el listado (paginado) y se filtra aca por año, usando el
+    # sufijo del propio numero de proceso.
     numeros = []
     pagina = 1
     while True:
@@ -106,7 +111,31 @@ def _listar_procesos_participados(page) -> list[str]:
         if n not in vistos:
             vistos.add(n)
             resultado.append(n)
+
+    corte = datetime.now().year - ANIOS_ATRAS
+    resultado = [n for n in resultado if _año_de_numero(n) >= corte]
     return resultado, url_resultados
+
+
+def _volver_al_listado(page, url_resultados: str, reintentos: int = 1) -> bool:
+    """El portal es bastante inestable bajo uso real (timeouts
+    intermitentes, alguna vez "Navigation interrupted by another
+    navigation" cuando la pagina anterior todavia estaba asentandose) --
+    reintenta un par de veces antes de darse por vencido. Devuelve False
+    solo si se agotaron los reintentos."""
+    for intento in range(reintentos + 1):
+        try:
+            page.goto(url_resultados, wait_until="domcontentloaded")
+            page.wait_for_load_state("networkidle")
+            _esperar_sin_overlay(page)
+            return True
+        except Exception as e:
+            if intento < reintentos:
+                print(f"  ! no se pudo volver al listado (intento {intento + 1}), reintentando: {e}")
+                page.wait_for_timeout(2000)
+            else:
+                print(f"  ! no se pudo volver al listado tras {reintentos + 1} intentos: {e}")
+    return False
 
 
 def fetch_todas_las_ofertas(headless: bool = True) -> list[dict]:
@@ -139,12 +168,20 @@ def fetch_todas_las_ofertas(headless: bool = True) -> list[dict]:
                     page.get_by_role("link", name=numero, exact=True).first.click()
                     page.wait_for_load_state("networkidle")
                     _esperar_sin_overlay(page)
+                    # espera el contenido real del detalle (no solo
+                    # "networkidle", que en un par de corridas volvio antes
+                    # de que la navegacion terminara realmente -- causaba
+                    # una carrera: se intentaba abrir "Ver cuadro
+                    # comparativo" en la pagina vieja, y el goto() de
+                    # vuelta chocaba con esa navegacion todavia en curso).
+                    page.wait_for_selector("text=Ofertas al proceso de compra", timeout=20000)
                     if i == 0:
                         volcar_debug(page, "comprar_ar_ofertas_3_pliego")
 
                     page.get_by_role("link", name=re.compile("Ver cuadro comparativo", re.I)).click()
                     page.wait_for_load_state("networkidle")
                     _esperar_sin_overlay(page)
+                    page.wait_for_selector("text=Cuadro comparativo de ofertas", timeout=20000)
                     if i == 0:
                         volcar_debug(page, "comprar_ar_ofertas_4_cuadro_comparativo")
 
@@ -156,17 +193,12 @@ def fetch_todas_las_ofertas(headless: bool = True) -> list[dict]:
                         print(f"    {numero}: no se pudo extraer ninguna oferta (revisar selectores)")
                         volcar_debug(page, f"comprar_ar_ofertas_sin_ofertas_{numero.replace('/', '_')}")
 
-                    page.goto(url_resultados, wait_until="domcontentloaded")
-                    page.wait_for_load_state("networkidle")
-                    _esperar_sin_overlay(page)
+                    _volver_al_listado(page, url_resultados)
                 except Exception as e:
                     print(f"  ! error en {numero}: {e}")
                     volcar_debug(page, f"comprar_ar_ofertas_error_{numero.replace('/', '_')}")
-                    try:
-                        page.goto(url_resultados, wait_until="domcontentloaded")
-                        page.wait_for_load_state("networkidle")
-                    except Exception as e2:
-                        print(f"  ! no se pudo volver al listado, se corta la corrida: {e2}")
+                    if not _volver_al_listado(page, url_resultados, reintentos=2):
+                        print("  ! no se pudo volver al listado, se corta la corrida")
                         break
         finally:
             browser.close()
