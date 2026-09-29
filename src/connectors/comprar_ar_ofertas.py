@@ -120,7 +120,7 @@ def _avanzar_a_pagina(page, pagina_objetivo: int):
         if siguiente.count() == 0:
             break
         _esperar_sin_overlay(page)
-        siguiente.click()
+        siguiente.click(force=True)
         page.wait_for_load_state("networkidle")
         _esperar_sin_overlay(page)
 
@@ -152,7 +152,7 @@ def _listar_procesos_participados(page) -> list[tuple[str, int]]:
         if siguiente.count() == 0:
             break
         _esperar_sin_overlay(page)
-        siguiente.click()
+        siguiente.click(force=True)
         page.wait_for_load_state("networkidle")
         _esperar_sin_overlay(page)
         pagina += 1
@@ -234,7 +234,14 @@ def fetch_todas_las_ofertas(headless: bool = True, max_procesos: int | None = No
                         continue
 
                     _esperar_sin_overlay(page)
-                    page.get_by_role("link", name=numero, exact=True).first.click()
+                    # aca especificamente el overlay quedo tapando el link
+                    # sin despejarse en 45s pese al wait previo (visto en
+                    # una corrida real) -- como ya se confirma que el link
+                    # correcto esta ahi (aparece en el log de Playwright
+                    # con su href real), se saltea el chequeo de
+                    # tapado/visible para este click puntual: el overlay es
+                    # puramente decorativo, no bloquea nada funcional.
+                    page.get_by_role("link", name=numero, exact=True).first.click(force=True)
                     page.wait_for_load_state("networkidle")
                     _esperar_sin_overlay(page)
                     # espera el contenido real del detalle (no solo
@@ -244,7 +251,7 @@ def fetch_todas_las_ofertas(headless: bool = True, max_procesos: int | None = No
                     if i == 0:
                         volcar_debug(page, "comprar_ar_ofertas_3_pliego")
 
-                    page.get_by_role("link", name=re.compile("Ver cuadro comparativo", re.I)).click()
+                    page.get_by_role("link", name=re.compile("Ver cuadro comparativo", re.I)).click(force=True)
                     page.wait_for_load_state("networkidle")
                     _esperar_sin_overlay(page)
                     page.wait_for_selector("text=Cuadro comparativo de ofertas", timeout=20000)
