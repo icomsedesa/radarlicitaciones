@@ -71,7 +71,20 @@ def _año_de_numero(numero: str) -> int:
 
 
 def _listar_procesos_participados(page) -> list[str]:
-    page.get_by_text(re.compile("Procesos en los cuales particip", re.I)).first.click()
+    # el portal a veces tarda en responder la navegacion mas de los 30s
+    # default de Playwright (visto en una corrida real: el click en si
+    # funciono, pero "esperar la navegacion" se agoto igual) -- mas
+    # margen y un par de reintentos para este paso puntual.
+    boton = page.get_by_text(re.compile("Procesos en los cuales particip", re.I)).first
+    for intento in range(3):
+        try:
+            boton.click(timeout=60000)
+            break
+        except Exception as e:
+            if intento == 2:
+                raise
+            print(f"  ! timeout entrando a 'Procesos en los cuales participé' (intento {intento + 1}), reintentando: {e}")
+            page.wait_for_timeout(2000)
     page.wait_for_load_state("networkidle")
     _esperar_sin_overlay(page)
     volcar_debug(page, "comprar_ar_ofertas_1_busqueda")
@@ -150,6 +163,7 @@ def fetch_todas_las_ofertas(headless: bool = True) -> list[dict]:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=headless)
         page = browser.new_page()
+        page.set_default_timeout(45000)  # el portal mostro latencia real por encima de los 30s default
         try:
             login_comprar_ar(page, usuario, password)
             page.wait_for_load_state("networkidle")
