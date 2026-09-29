@@ -152,53 +152,47 @@ def _listar_procesos_participados(page) -> list[tuple[str, int]]:
     return resultado
 
 
-def _sesion_vencida(page) -> bool:
-    """Confirmado con una corrida real: la sesion de COMPR.AR puede vencer
-    a mitad de la corrida (mas probable cuanto mas tarda, y volver a
-    entrar por el escritorio antes de cada proceso no es precisamente
-    rapido) -- entonces goto(url_escritorio) redirige a Login.aspx en vez
-    de mostrar el escritorio, y todo lo que sigue fallaba en cadena
-    (timeouts esperando un texto que nunca iba a aparecer)."""
-    return "Login.aspx" in page.url
-
-
-def _ubicar_en_listado(page, usuario: str, password: str, url_escritorio: str, pagina: int, reintentos: int = 1) -> bool:
+def _ubicar_en_listado(page, url_escritorio: str, pagina: int, reintentos: int = 2) -> bool:
     """Se posiciona en la pagina `pagina` del listado, partiendo siempre
     del escritorio (URL estable, a diferencia de la de resultados -- ver
-    docstring de _listar_procesos_participados). Mas lento que volver
-    "para atras" entre procesos, pero cada paso (revisitar el escritorio,
-    clickear "Procesos en los cuales participé", avanzar de a una pagina)
-    ya esta probado que funciona de forma confiable, a diferencia de
-    goto()/go_back() sobre el listado en si. Si la sesion vencio, se
-    vuelve a loguear antes de reintentar."""
+    docstring de _listar_procesos_participados).
+
+    Hubo un intento de detectar "sesion vencida" (aterrizar en Login.aspx)
+    y volver a loguear ahi mismo -- resulto CONTRAPRODUCENTE: una corrida
+    real mostro que, en al menos un caso, el propio sitio ya estaba
+    redirigiendo de vuelta al escritorio (sesion en realidad viva) cuando
+    nuestro re-login intervino, y el choque entre esa redireccion propia y
+    nuestro goto() a Login.aspx dejaba la pagina en un estado roto para
+    el resto de la corrida ("Navigation interrupted by another
+    navigation"). Mejor no reaccionar de forma especial ante eso: se
+    reintenta la MISMA navegacion simple, con una pausa mas larga entre
+    intentos para darle tiempo a que cualquier redireccion transitoria del
+    sitio se asiente sola."""
     for intento in range(reintentos + 1):
         try:
             page.goto(url_escritorio, wait_until="domcontentloaded")
             page.wait_for_load_state("networkidle")
-            if _sesion_vencida(page):
-                print("  ! la sesion parece haber vencido -- reingresando")
-                login_comprar_ar(page, usuario, password)
-                page.wait_for_load_state("networkidle")
-                page.goto(url_escritorio, wait_until="domcontentloaded")
-                page.wait_for_load_state("networkidle")
+            page.wait_for_timeout(800)
             _entrar_a_listado(page)
             _avanzar_a_pagina(page, pagina)
             return True
         except Exception as e:
             if intento < reintentos:
-                print(f"  ! no se pudo ubicar en la pagina {pagina} del listado (intento {intento + 1}), reintentando: {e}")
-                page.wait_for_timeout(2000)
+                print(f"  ! no se pudo ubicar en la pagina {pagina} del listado (intento {intento + 1}), reintentando en unos segundos: {e}")
+                page.wait_for_timeout(5000)
             else:
                 print(f"  ! no se pudo ubicar en la pagina {pagina} del listado tras {reintentos + 1} intentos: {e}")
     return False
 
 
-def fetch_todas_las_ofertas(headless: bool = True) -> list[dict]:
+def fetch_todas_las_ofertas(headless: bool = True, max_procesos: int | None = None) -> list[dict]:
     """Devuelve [{"numero_proceso": ..., "ofertas": [...]}, ...] para cada
     proceso en el que participo la cuenta configurada (acotado a los
     ultimos ANIOS_ATRAS+1 años). Cada oferta es un dict proveedor/cuit/
     monto/moneda/fecha_oferta/es_ganadora, mismo formato que espera
-    db.set_ofertas."""
+    db.set_ofertas. `max_procesos` acota cuantos se procesan de punta a
+    punta -- util para probar en chico (el portal mostro bastante
+    latencia/flakeo real con lotes grandes)."""
     usuario, password = obtener_credencial("comprar_ar")
 
     resultado = []
@@ -213,14 +207,21 @@ def fetch_todas_las_ofertas(headless: bool = True) -> list[dict]:
             volcar_debug(page, "comprar_ar_ofertas_0_escritorio")
 
             numeros = _listar_procesos_participados(page)
+            if max_procesos:
+                numeros = numeros[:max_procesos]
             print(f"  {len(numeros)} procesos participados desde {datetime.now().year - ANIOS_ATRAS}: {[n for n, _ in numeros]}")
 
             for i, (numero, pagina) in enumerate(numeros):
                 try:
+                    if i > 0:
+                        # pausa entre procesos -- el portal mostro
+                        # comportamiento raro (redirecciones que chocan
+                        # entre si) bajo navegacion automatica muy seguida.
+                        page.wait_for_timeout(1500)
                     # se re-ubica desde el escritorio antes de CADA proceso
                     # (mas lento que volver "para atras", pero confiable --
                     # ver _ubicar_en_listado).
-                    if not _ubicar_en_listado(page, usuario, password, url_escritorio, pagina, reintentos=2):
+                    if not _ubicar_en_listado(page, url_escritorio, pagina):
                         print(f"  ! no se pudo ubicar el listado para {numero}, se lo salta")
                         continue
 
@@ -262,7 +263,10 @@ if __name__ == "__main__":
     import sys
 
     headless = "--headless" in sys.argv
-    data = fetch_todas_las_ofertas(headless=headless)
+    max_procesos = None
+    if "--max" in sys.argv:
+        max_procesos = int(sys.argv[sys.argv.index("--max") + 1])
+    data = fetch_todas_las_ofertas(headless=headless, max_procesos=max_procesos)
     total_ofertas = sum(len(d["ofertas"]) for d in data)
     print(f"\n{len(data)} procesos, {total_ofertas} ofertas en total")
     for row in data:
