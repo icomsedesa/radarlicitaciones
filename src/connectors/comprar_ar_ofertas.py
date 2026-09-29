@@ -26,10 +26,13 @@ numero de proceso -> detalle del proceso -> link "Ver cuadro
 comparativo" -> VerCuadroComparativo (URLs con un token de sesion opaco
 por `qs=`, no hay forma de armarlas directo -- hay que navegar la UI real
 cada vez). Portal con bastante latencia/flakeo bajo uso real (timeouts
-intermitentes, un overlay de carga AJAX que a veces tapa los links) -- el
-script reintenta la vuelta al listado antes de darse por vencido con un
-proceso puntual, y vuelca captura + HTML en cada paso para poder
-ajustar si algo no matchea.
+intermitentes, un overlay de carga AJAX que a veces tapa los links,
+"page.goto()" sobre la URL del listado que no lo restaura -- carga un
+formulario de busqueda vacio en su lugar) -- por eso el script vuelve a
+entrar por el escritorio (unico punto de partida confirmado estable)
+antes de cada proceso en vez de "volver para atras" entre uno y el
+siguiente. Mas lento, pero cada paso ya esta probado. Vuelca captura +
+HTML en cada etapa para poder ajustar si algo no matchea.
 
 Uso:
     python -m src.connectors.comprar_ar_ofertas
@@ -70,11 +73,12 @@ def _año_de_numero(numero: str) -> int:
     return 2000 + int(m.group(1)) if m else 0
 
 
-def _listar_procesos_participados(page) -> list[str]:
-    # el portal a veces tarda en responder la navegacion mas de los 30s
-    # default de Playwright (visto en una corrida real: el click en si
-    # funciono, pero "esperar la navegacion" se agoto igual) -- mas
-    # margen y un par de reintentos para este paso puntual.
+def _entrar_a_listado(page):
+    """Desde el escritorio, entra a "Procesos en los cuales participé"
+    (pagina 1 del listado). El portal a veces tarda en responder esta
+    navegacion puntual mas de los 30s default de Playwright (visto en una
+    corrida real: el click en si funciono, pero "esperar la navegacion" se
+    agoto igual) -- mas margen y reintentos."""
     boton = page.get_by_text(re.compile("Procesos en los cuales particip", re.I)).first
     for intento in range(3):
         try:
@@ -87,12 +91,30 @@ def _listar_procesos_participados(page) -> list[str]:
             page.wait_for_timeout(2000)
     page.wait_for_load_state("networkidle")
     _esperar_sin_overlay(page)
+
+
+def _avanzar_a_pagina(page, pagina_objetivo: int):
+    """Asume que ya esta en la pagina 1 del listado -- clickea "siguiente"
+    hasta llegar a `pagina_objetivo`."""
+    for pagina in range(1, pagina_objetivo):
+        siguiente = page.get_by_role("link", name=str(pagina + 1), exact=True)
+        if siguiente.count() == 0:
+            break
+        _esperar_sin_overlay(page)
+        siguiente.click()
+        page.wait_for_load_state("networkidle")
+        _esperar_sin_overlay(page)
+
+
+def _listar_procesos_participados(page) -> list[tuple[str, int]]:
+    """Devuelve [(numero_proceso, pagina), ...] -- se guarda en que pagina
+    del listado esta cada uno para poder volver a ubicarlo despues sin
+    depender de goto()/go_back() (revisitar la URL capturada resulto NO
+    confiable para este listado puntual: cargaba un formulario de
+    busqueda vacio en vez del listado -- confirmado contra el HTML real
+    de una corrida fallida)."""
+    _entrar_a_listado(page)
     volcar_debug(page, "comprar_ar_ofertas_1_busqueda")
-    # se guarda ACA (pagina 1 de resultados) -- no despues de recorrer la
-    # paginacion, que dejaria la pagina posicionada en la ULTIMA pagina en
-    # vez de la primera (asi volvia el goto() entre procesos, por eso el
-    # primer numero de la lista tiraba timeout: no estaba en esa pagina).
-    url_resultados = page.url
 
     # El filtro de fecha del buscador (widget DevExpress) resulto poco
     # confiable: se probo `fill()` + Tab sobre el input real y clickear
@@ -100,13 +122,13 @@ def _listar_procesos_participados(page) -> list[str]:
     # seguia sin acotarse -- asi que en vez de forcejear mas con la UI se
     # trae TODO el listado (paginado) y se filtra aca por año, usando el
     # sufijo del propio numero de proceso.
-    numeros = []
+    numeros = []  # [(numero, pagina), ...]
     pagina = 1
     while True:
         for link in page.locator("a").all():
             texto = limpiar(link.inner_text())
             if RE_NUMERO_PROCESO.match(texto):
-                numeros.append(texto)
+                numeros.append((texto, pagina))
         siguiente = page.get_by_role("link", name=str(pagina + 1), exact=True)
         if siguiente.count() == 0:
             break
@@ -120,34 +142,37 @@ def _listar_procesos_participados(page) -> list[str]:
 
     vistos = set()
     resultado = []
-    for n in numeros:
+    for n, p in numeros:
         if n not in vistos:
             vistos.add(n)
-            resultado.append(n)
+            resultado.append((n, p))
 
     corte = datetime.now().year - ANIOS_ATRAS
-    resultado = [n for n in resultado if _año_de_numero(n) >= corte]
-    return resultado, url_resultados
+    resultado = [(n, p) for n, p in resultado if _año_de_numero(n) >= corte]
+    return resultado
 
 
-def _volver_al_listado(page, url_resultados: str, reintentos: int = 1) -> bool:
-    """El portal es bastante inestable bajo uso real (timeouts
-    intermitentes, alguna vez "Navigation interrupted by another
-    navigation" cuando la pagina anterior todavia estaba asentandose) --
-    reintenta un par de veces antes de darse por vencido. Devuelve False
-    solo si se agotaron los reintentos."""
+def _ubicar_en_listado(page, url_escritorio: str, pagina: int, reintentos: int = 1) -> bool:
+    """Se posiciona en la pagina `pagina` del listado, partiendo siempre
+    del escritorio (URL estable, a diferencia de la de resultados -- ver
+    docstring de _listar_procesos_participados). Mas lento que volver
+    "para atras" entre procesos, pero cada paso (revisitar el escritorio,
+    clickear "Procesos en los cuales participé", avanzar de a una pagina)
+    ya esta probado que funciona de forma confiable, a diferencia de
+    goto()/go_back() sobre el listado en si."""
     for intento in range(reintentos + 1):
         try:
-            page.goto(url_resultados, wait_until="domcontentloaded")
+            page.goto(url_escritorio, wait_until="domcontentloaded")
             page.wait_for_load_state("networkidle")
-            _esperar_sin_overlay(page)
+            _entrar_a_listado(page)
+            _avanzar_a_pagina(page, pagina)
             return True
         except Exception as e:
             if intento < reintentos:
-                print(f"  ! no se pudo volver al listado (intento {intento + 1}), reintentando: {e}")
+                print(f"  ! no se pudo ubicar en la pagina {pagina} del listado (intento {intento + 1}), reintentando: {e}")
                 page.wait_for_timeout(2000)
             else:
-                print(f"  ! no se pudo volver al listado tras {reintentos + 1} intentos: {e}")
+                print(f"  ! no se pudo ubicar en la pagina {pagina} del listado tras {reintentos + 1} intentos: {e}")
     return False
 
 
@@ -167,27 +192,28 @@ def fetch_todas_las_ofertas(headless: bool = True) -> list[dict]:
         try:
             login_comprar_ar(page, usuario, password)
             page.wait_for_load_state("networkidle")
+            url_escritorio = page.url
             volcar_debug(page, "comprar_ar_ofertas_0_escritorio")
 
-            # se vuelve a url_resultados (pagina 1 de la busqueda ya
-            # filtrada) entre procesos, no a la del escritorio -- evita
-            # rehacer la busqueda (click + filtro por fecha) en cada
-            # iteracion.
-            numeros, url_resultados = _listar_procesos_participados(page)
-            print(f"  {len(numeros)} procesos participados desde {datetime.now().year - ANIOS_ATRAS}: {numeros}")
+            numeros = _listar_procesos_participados(page)
+            print(f"  {len(numeros)} procesos participados desde {datetime.now().year - ANIOS_ATRAS}: {[n for n, _ in numeros]}")
 
-            for i, numero in enumerate(numeros):
+            for i, (numero, pagina) in enumerate(numeros):
                 try:
+                    # se re-ubica desde el escritorio antes de CADA proceso
+                    # (mas lento que volver "para atras", pero confiable --
+                    # ver _ubicar_en_listado).
+                    if not _ubicar_en_listado(page, url_escritorio, pagina):
+                        print(f"  ! no se pudo ubicar el listado para {numero}, se lo salta")
+                        continue
+
                     _esperar_sin_overlay(page)
                     page.get_by_role("link", name=numero, exact=True).first.click()
                     page.wait_for_load_state("networkidle")
                     _esperar_sin_overlay(page)
                     # espera el contenido real del detalle (no solo
                     # "networkidle", que en un par de corridas volvio antes
-                    # de que la navegacion terminara realmente -- causaba
-                    # una carrera: se intentaba abrir "Ver cuadro
-                    # comparativo" en la pagina vieja, y el goto() de
-                    # vuelta chocaba con esa navegacion todavia en curso).
+                    # de que la navegacion terminara realmente).
                     page.wait_for_selector("text=Ofertas al proceso de compra", timeout=20000)
                     if i == 0:
                         volcar_debug(page, "comprar_ar_ofertas_3_pliego")
@@ -206,14 +232,9 @@ def fetch_todas_las_ofertas(headless: bool = True) -> list[dict]:
                     else:
                         print(f"    {numero}: no se pudo extraer ninguna oferta (revisar selectores)")
                         volcar_debug(page, f"comprar_ar_ofertas_sin_ofertas_{numero.replace('/', '_')}")
-
-                    _volver_al_listado(page, url_resultados)
                 except Exception as e:
                     print(f"  ! error en {numero}: {e}")
                     volcar_debug(page, f"comprar_ar_ofertas_error_{numero.replace('/', '_')}")
-                    if not _volver_al_listado(page, url_resultados, reintentos=2):
-                        print("  ! no se pudo volver al listado, se corta la corrida")
-                        break
         finally:
             browser.close()
 
