@@ -26,12 +26,15 @@ numero de proceso -> detalle del proceso -> link "Ver cuadro
 comparativo" -> VerCuadroComparativo (URLs con un token de sesion opaco
 por `qs=`, no hay forma de armarlas directo -- hay que navegar la UI real
 cada vez). Portal con bastante latencia/flakeo bajo uso real (timeouts
-intermitentes, un overlay de carga AJAX que a veces tapa los links,
-"page.goto()" sobre la URL del listado que no lo restaura -- carga un
-formulario de busqueda vacio en su lugar) -- por eso el script vuelve a
-entrar por el escritorio (unico punto de partida confirmado estable)
-antes de cada proceso en vez de "volver para atras" entre uno y el
-siguiente. Mas lento, pero cada paso ya esta probado. Vuelca captura +
+intermitentes, un overlay de carga AJAX que a veces tapa los links) --
+y, mas serio: revisitar con goto() una URL con `qs=` capturada NO es
+confiable ahi (confirmado con HTML real: tanto la del listado de
+resultados como, en corridas largas, la del escritorio mismo terminaron
+mostrando la pantalla de login en vez de la pagina esperada). Por eso
+volver al escritorio entre procesos se hace con un click real sobre el
+link "Mi escritorio" del header (dropdown de usuario, ver
+_ir_a_escritorio_por_nav) en vez de goto() -- mas lento que "volver para
+atras", pero cada paso ya esta probado que funciona. Vuelca captura +
 HTML en cada etapa para poder ajustar si algo no matchea.
 
 Uso:
@@ -71,6 +74,22 @@ def _año_de_numero(numero: str) -> int:
     los datos vistos hasta ahora)."""
     m = re.search(r"[A-Z]{3}(\d{2})$", numero)
     return 2000 + int(m.group(1)) if m else 0
+
+
+def _ir_a_escritorio_por_nav(page):
+    """Vuelve al escritorio clickeando el link real "Mi escritorio" del
+    header (dentro del dropdown de usuario, id estable
+    ctl00_NavBar_CtrlUsuario_lnkEscritorio) en vez de revisitar una URL
+    capturada -- confirmado con capturas reales que goto() sobre URLs con
+    `qs=` no es confiable en este portal (tanto la del listado de
+    resultados como, en corridas largas, la propia del escritorio
+    terminaron mostrando la pantalla de login en vez de la pagina
+    esperada). El link vive en un dropdown Bootstrap -- hay que abrirlo
+    (click en el nombre de usuario) antes de poder clickearlo."""
+    page.locator('a.dropdown-toggle:has(#ctl00_NavBar_CtrlUsuario_lblNombreApellido)').click()
+    page.click('#ctl00_NavBar_CtrlUsuario_lnkEscritorio')
+    page.wait_for_load_state("networkidle")
+    _esperar_sin_overlay(page)
 
 
 def _entrar_a_listado(page):
@@ -152,27 +171,17 @@ def _listar_procesos_participados(page) -> list[tuple[str, int]]:
     return resultado
 
 
-def _ubicar_en_listado(page, url_escritorio: str, pagina: int, reintentos: int = 2) -> bool:
+def _ubicar_en_listado(page, pagina: int, reintentos: int = 2) -> bool:
     """Se posiciona en la pagina `pagina` del listado, partiendo siempre
-    del escritorio (URL estable, a diferencia de la de resultados -- ver
-    docstring de _listar_procesos_participados).
-
-    Hubo un intento de detectar "sesion vencida" (aterrizar en Login.aspx)
-    y volver a loguear ahi mismo -- resulto CONTRAPRODUCENTE: una corrida
-    real mostro que, en al menos un caso, el propio sitio ya estaba
-    redirigiendo de vuelta al escritorio (sesion en realidad viva) cuando
-    nuestro re-login intervino, y el choque entre esa redireccion propia y
-    nuestro goto() a Login.aspx dejaba la pagina en un estado roto para
-    el resto de la corrida ("Navigation interrupted by another
-    navigation"). Mejor no reaccionar de forma especial ante eso: se
-    reintenta la MISMA navegacion simple, con una pausa mas larga entre
-    intentos para darle tiempo a que cualquier redireccion transitoria del
-    sitio se asiente sola."""
+    del escritorio -- al que se vuelve por el link real de navegacion
+    (_ir_a_escritorio_por_nav), no revisitando una URL capturada (eso
+    resulto NO confiable en este portal, tanto para el listado de
+    resultados como para el escritorio mismo en corridas largas -- ver
+    docstrings de _listar_procesos_participados y
+    _ir_a_escritorio_por_nav)."""
     for intento in range(reintentos + 1):
         try:
-            page.goto(url_escritorio, wait_until="domcontentloaded")
-            page.wait_for_load_state("networkidle")
-            page.wait_for_timeout(800)
+            _ir_a_escritorio_por_nav(page)
             _entrar_a_listado(page)
             _avanzar_a_pagina(page, pagina)
             return True
@@ -203,7 +212,6 @@ def fetch_todas_las_ofertas(headless: bool = True, max_procesos: int | None = No
         try:
             login_comprar_ar(page, usuario, password)
             page.wait_for_load_state("networkidle")
-            url_escritorio = page.url
             volcar_debug(page, "comprar_ar_ofertas_0_escritorio")
 
             numeros = _listar_procesos_participados(page)
@@ -221,7 +229,7 @@ def fetch_todas_las_ofertas(headless: bool = True, max_procesos: int | None = No
                     # se re-ubica desde el escritorio antes de CADA proceso
                     # (mas lento que volver "para atras", pero confiable --
                     # ver _ubicar_en_listado).
-                    if not _ubicar_en_listado(page, url_escritorio, pagina):
+                    if not _ubicar_en_listado(page, pagina):
                         print(f"  ! no se pudo ubicar el listado para {numero}, se lo salta")
                         continue
 
