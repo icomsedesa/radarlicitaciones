@@ -85,9 +85,11 @@ def _ir_a_escritorio_por_nav(page):
     resultados como, en corridas largas, la propia del escritorio
     terminaron mostrando la pantalla de login en vez de la pagina
     esperada). El link vive en un dropdown Bootstrap -- hay que abrirlo
-    (click en el nombre de usuario) antes de poder clickearlo."""
-    page.locator('a.dropdown-toggle:has(#ctl00_NavBar_CtrlUsuario_lblNombreApellido)').click()
-    page.click('#ctl00_NavBar_CtrlUsuario_lnkEscritorio')
+    (click en el nombre de usuario) antes de poder clickearlo. Igual que
+    los demas links de postback de esta pagina, se saltea con force=True
+    el chequeo de tapado por el overlay decorativo."""
+    page.locator('a.dropdown-toggle:has(#ctl00_NavBar_CtrlUsuario_lblNombreApellido)').click(force=True)
+    page.click('#ctl00_NavBar_CtrlUsuario_lnkEscritorio', force=True)
     page.wait_for_load_state("networkidle")
     _esperar_sin_overlay(page)
 
