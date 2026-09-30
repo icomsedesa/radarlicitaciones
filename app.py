@@ -406,8 +406,12 @@ def _buscar():
     )
 
 
-MESES_VALIDOS = (12, 6, 3)
+MESES_VALIDOS = (24, 12, 6, 3)
 MESES_DEFAULT = 12
+# 24 meses cubre el rango real de los conectores autenticados (COMPR.AR/BAC
+# van hasta año actual + 1 atras, ~21 meses en el peor caso) -- sin esto
+# quedaba data recien cargada invisible por default, con el filtro de 12
+# meses pensado originalmente solo para las actas de PAMI.
 
 # Fuentes que pueden tener comparativas cargadas -- a diferencia de FUENTES
 # (todas las ~29 fuentes del buscador general), esto se limita a las que
