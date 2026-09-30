@@ -1,0 +1,41 @@
+<p class="muted" style="margin:-8px 0 14px;font-size:13px;">Mostrando {{ shown }} de {{ total }} ofertas de los últimos {{ meses }} meses</p>
+
+<div class="table-wrap">
+  {% if rows %}
+  <table>
+    <thead>
+      <tr>
+        <th>Fuente</th><th>N° proceso</th><th>Licitación</th><th>Organismo</th>
+        <th>Apertura</th><th>Proveedor</th><th>CUIT</th><th>Fecha oferta</th><th>Monto cotizado</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr {% if r.es_ganadora %}style="background:var(--surface-2);"{% endif %}>
+        <td><span class="badge-fuente pill-{{ fuente_clase(r.fuente) }}">{{ r.fuente }}</span></td>
+        <td><a class="titulo" href="{{ url_for('detalle', licitacion_id=r.licitacion_id) }}">{{ r.numero_proceso }}</a></td>
+        <td>{{ r.titulo or '(sin título)' }}</td>
+        <td>{{ r.organismo or '—' }}</td>
+        <td>{{ r.fecha_apertura[:16].replace('T',' ') if r.fecha_apertura else '—' }}</td>
+        <td>{{ r.proveedor or '—' }}{% if r.es_ganadora %} <span class="ganadora">★ menor precio</span>{% endif %}</td>
+        <td>{{ r.cuit or '—' }}</td>
+        <td>{{ r.fecha_oferta or '—' }}</td>
+        <td class="monto">{% if r.monto %}{{ '{:,.2f}'.format(r.monto) }} {{ r.moneda or '' }}{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <div class="empty">
+      {% if q or fuente %}Sin ofertas que coincidan con la búsqueda.{% else %}Todavía no hay ofertas cargadas para este período.{% endif %}
+    </div>
+  {% endif %}
+</div>
+
+{% if total_paginas > 1 %}
+<div class="pagination">
+  <a class="pag-btn {{ 'disabled' if pagina <= 1 else '' }}" data-page="{{ pagina - 1 }}" href="#">‹ Anterior</a>
+  <span class="pag-info">Página {{ pagina }} de {{ total_paginas }}</span>
+  <a class="pag-btn {{ 'disabled' if pagina >= total_paginas else '' }}" data-page="{{ pagina + 1 }}" href="#">Siguiente ›</a>
+</div>
+{% endif %}

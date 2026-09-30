@@ -409,19 +409,21 @@ def _buscar():
 MESES_VALIDOS = (12, 6, 3)
 MESES_DEFAULT = 12
 
+# Fuentes que pueden tener comparativas cargadas -- a diferencia de FUENTES
+# (todas las ~29 fuentes del buscador general), esto se limita a las que
+# efectivamente tienen algun conector de comparativas (PAMI: publico;
+# BAC/COMPR.AR: autenticado). Se muestran igual aunque su conteo actual sea 0.
+FUENTES_COMPARATIVAS = [
+    ("pami", "PAMI"),
+    ("bac", "BAC (CABA)"),
+    ("comprar_ar", "COMPR.AR (Nación)"),
+]
 
-def _comparativas():
-    """Vista cruzada de licitacion_ofertas (a diferencia del detalle de una
-    licitacion puntual): todas las ofertas de todos los proveedores, para
-    poder buscar por competidor o por rubro sin tener que entrar
-    licitacion por licitacion. Acotada por default a los ultimos 12 meses
-    (botones 12/6/3 meses) -- comparativas mas viejas pierden utilidad para
-    cotizar y solo suman ruido."""
+
+def _comparativas_condiciones():
+    """Filtros comunes (meses + texto), sin el de fuente -- reutilizado
+    tanto por la consulta principal como por el desglose por fuente."""
     q = request.args.get("q", "").strip()
-    try:
-        pagina = max(1, int(request.args.get("pagina", "1")))
-    except ValueError:
-        pagina = 1
     try:
         meses = int(request.args.get("meses", MESES_DEFAULT))
     except ValueError:
@@ -429,7 +431,6 @@ def _comparativas():
     if meses not in MESES_VALIDOS:
         meses = MESES_DEFAULT
 
-    conn = db.get_connection()
     condiciones = ["l.fecha_apertura >= :desde"]
     params = {"desde": (datetime.now() - timedelta(days=meses * 30.44)).isoformat()}
     if q:
@@ -438,6 +439,54 @@ def _comparativas():
             "OR l.organismo LIKE :q OR l.numero_proceso LIKE :q)"
         )
         params["q"] = f"%{q}%"
+    return q, meses, condiciones, params
+
+
+def _por_fuente_comparativas(conn=None):
+    """Desglose de ofertas por fuente bajo los MISMOS filtros que la
+    busqueda actual (meses/texto), sin el propio filtro de fuente --
+    mismo criterio que _por_fuente_actual() para el buscador general."""
+    _, _, condiciones, params = _comparativas_condiciones()
+    where = "WHERE " + " AND ".join(condiciones)
+    conn_propia = conn is None
+    if conn_propia:
+        conn = db.get_connection()
+    rows = conn.execute(
+        f"""
+        SELECT l.fuente, COUNT(*) c
+        FROM licitacion_ofertas o
+        JOIN licitaciones l ON l.id = o.licitacion_id
+        {where}
+        GROUP BY l.fuente
+        """,
+        params,
+    ).fetchall()
+    if conn_propia:
+        conn.close()
+    return {r["fuente"]: r["c"] for r in rows}
+
+
+def _comparativas():
+    """Vista cruzada de licitacion_ofertas (a diferencia del detalle de una
+    licitacion puntual): todas las ofertas de todos los proveedores, para
+    poder buscar por competidor o por rubro sin tener que entrar
+    licitacion por licitacion. Acotada por default a los ultimos 12 meses
+    (botones 12/6/3 meses) -- comparativas mas viejas pierden utilidad para
+    cotizar y solo suman ruido."""
+    fuente = request.args.get("fuente", "").strip()
+    q, meses, condiciones, params = _comparativas_condiciones()
+    try:
+        pagina = max(1, int(request.args.get("pagina", "1")))
+    except ValueError:
+        pagina = 1
+
+    conn = db.get_connection()
+
+    por_fuente = _por_fuente_comparativas(conn)
+
+    if fuente:
+        condiciones = condiciones + ["l.fuente = :fuente"]
+        params = {**params, "fuente": fuente}
     where = "WHERE " + " AND ".join(condiciones)
 
     query = f"""
@@ -466,14 +515,23 @@ def _comparativas():
 
     total_paginas = max(1, -(-total // PAGE_SIZE))
     return dict(
-        rows=rows, total=total, q=q, pagina=pagina, total_paginas=total_paginas,
+        rows=rows, total=total, q=q, fuente=fuente, pagina=pagina, total_paginas=total_paginas,
         shown=len(rows), meses=meses, meses_validos=MESES_VALIDOS,
+        fuentes=FUENTES_COMPARATIVAS, por_fuente=por_fuente,
     )
 
 
 @app.route("/comparativas")
 def comparativas():
-    return render_template("comparativas.html", **_comparativas())
+    ctx = _comparativas()
+    if request.headers.get("X-Requested-With") == "fetch":
+        return render_template("_comparativas_resultados.html", **ctx)
+    return render_template("comparativas.html", **ctx)
+
+
+@app.route("/api/comparativas/fuentes")
+def api_comparativas_fuentes():
+    return _por_fuente_comparativas()
 
 
 @app.route("/")
