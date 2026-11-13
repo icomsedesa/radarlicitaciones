@@ -16,6 +16,8 @@ y unir por ocid, pendiente si hace falta mas adelante.
 from pathlib import Path
 
 import pandas as pd
+import time
+
 import requests
 
 BAC_ANUAL_CSV_URL = "https://cdn.buenosaires.gob.ar/datosabiertos/datasets/ministerio-de-economia-y-finanzas/buenos-aires-compras/bac_anual.csv"
@@ -23,16 +25,25 @@ BAC_ANUAL_CSV_URL = "https://cdn.buenosaires.gob.ar/datosabiertos/datasets/minis
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "bac"
 
 
-def _download(url: str, dest: Path) -> Path:
+def _download(url: str, dest: Path, intentos: int = 4) -> Path:
     dest.parent.mkdir(parents=True, exist_ok=True)
     if dest.exists():
         return dest
-    with requests.get(url, stream=True, timeout=120) as r:
-        r.raise_for_status()
-        with open(dest, "wb") as f:
-            for chunk in r.iter_content(chunk_size=1 << 20):
-                f.write(chunk)
-    return dest
+    ultimo = None
+    for i in range(intentos):
+        try:
+            tmp = dest.with_suffix(dest.suffix + ".part")
+            with requests.get(url, stream=True, timeout=120) as r:
+                r.raise_for_status()
+                with open(tmp, "wb") as f:
+                    for chunk in r.iter_content(chunk_size=1 << 20):
+                        f.write(chunk)
+            tmp.replace(dest)  # recien completo se publica (no queda un CSV a medias)
+            return dest
+        except requests.RequestException as e:  # p.ej. 503 transitorio del CDN
+            ultimo = e
+            time.sleep(10 * (i + 1))
+    raise ultimo
 
 
 def _num(value):

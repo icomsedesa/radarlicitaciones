@@ -6,6 +6,7 @@ Local (default): SQLite en `data/licitaciones.db`, via el modulo estandar
 cambio a esa base remota en Turso, con el mismo esquema y las mismas
 consultas -- ver `db_turso.TursoConnection`, un shim que imita lo minimo
 de la API de `sqlite3` que este archivo usa."""
+import re
 import sqlite3
 from pathlib import Path
 
@@ -103,6 +104,16 @@ ON CONFLICT(fuente, numero_proceso) DO UPDATE SET
 """
 
 
+COLUMNAS_UPSERT = tuple(dict.fromkeys(re.findall(r":(\w+)", UPSERT_SQL)))
+
+
+def _solo_columnas(row):
+    """Turso rechaza el execute si el dict trae claves de mas que no estan
+    en el SQL ("Number of arguments mismatch: expected 15, got 16" -- hacia
+    fallar PAMI) -- se proyecta a las columnas que realmente usa el UPSERT."""
+    return {k: row.get(k) for k in COLUMNAS_UPSERT}
+
+
 def get_connection():
     conn = db_turso.conectar_desde_env()
     if conn is None:
@@ -118,7 +129,7 @@ def upsert_many(conn, rows):
     """rows: lista de dicts con las claves del esquema `licitaciones` (sin items)."""
     if not rows:
         return 0
-    conn.executemany(UPSERT_SQL, rows)
+    conn.executemany(UPSERT_SQL, [_solo_columnas(r) for r in rows])
     conn.commit()
     return len(rows)
 
@@ -141,7 +152,7 @@ def upsert_with_items(conn, rows):
         if items is not None:
             items_por_clave[(row["fuente"], row["numero_proceso"])] = items
 
-    conn.executemany(UPSERT_SQL, rows)
+    conn.executemany(UPSERT_SQL, [_solo_columnas(r) for r in rows])
 
     if not items_por_clave:
         conn.commit()
