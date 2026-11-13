@@ -677,7 +677,7 @@ def _autenticado():
     return session.get("usuario") is not None
 
 
-RUTAS_PUBLICAS = {"login", "login_google", "auth_callback", "static", "diag_pbac_tmp"}
+RUTAS_PUBLICAS = {"login", "login_google", "auth_callback", "static"}
 
 
 @app.before_request
@@ -751,25 +751,3 @@ def configuracion():
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
-
-
-# --- TEMPORAL: diagnostico de conectividad a PBAC desde Vercel (se borra) ---
-@app.route("/_diag_pbac/<token>")
-def diag_pbac_tmp(token):
-    import time, requests
-    if token != "e459e8db5f4cdc4a":
-        return "no", 404
-    out = {"region": os.environ.get("VERCEL_REGION")}
-    try:
-        out["ip"] = requests.get("https://api.ipify.org", timeout=8).text
-    except Exception as e:
-        out["ip"] = repr(e)
-    t = time.time()
-    try:
-        r = requests.get("https://pbac.cgp.gba.gov.ar/ListarAperturaProxima.aspx", timeout=15,
-                         headers={"User-Agent": "Mozilla/5.0 (compatible; RadarLicitaciones/0.1; uso interno)"})
-        out["pbac"] = f"{r.status_code} {len(r.content)} bytes"
-    except Exception as e:
-        out["pbac"] = repr(e)[:200]
-    out["seg"] = round(time.time() - t, 1)
-    return out
