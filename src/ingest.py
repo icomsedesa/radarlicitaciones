@@ -3,6 +3,15 @@
 Uso:
     python -m src.ingest                      # carga completa (comprar_ar full + bac full + pbac 5 paginas)
     python -m src.ingest --rapido              # corrida corta para probar el pipeline
+    python -m src.ingest --solo pbac           # solo algunos pasos (ver CLAVES abajo)
+    python -m src.ingest --excluir pbac        # todo menos algunos pasos
+
+CLAVES de paso: comprar_ar, bac, pbac, mendoza, pami, pami_ugl,
+pami_efectores, pami_actas, el slug de cada municipio (p.ej. muni_moron) y
+el grupo "municipios".
+
+Cada fuente registra en `estado_fuentes` si se pudo actualizar; si fallo, el
+buscador muestra un aviso al filtrar por ella.
 """
 import argparse
 import os
@@ -18,27 +27,28 @@ from src.connectors.municipios import (
 )
 
 # Conectores municipales "simples": basta llamar fetch() sin argumentos.
+# (nombre, slug de la fuente en la base, modulo)
 # (Los que necesitan parametros especiales -- como SIBOM, por city_id --
 # se manejan aparte, mas abajo.)
 MUNICIPIOS_SIMPLES = [
-    ("San Miguel", san_miguel),
-    ("La Matanza", la_matanza),
-    ("Vicente López", vicente_lopez),
-    ("San Andrés de Giles", san_andres_de_giles),
-    ("Chivilcoy", chivilcoy),
-    ("Quilmes", quilmes),
-    ("Morón", moron),
-    ("Tres de Febrero", tres_de_febrero),
-    ("Florencio Varela", florencio_varela),
-    ("Escobar", escobar),
-    ("Moreno", moreno),
-    ("Avellaneda", avellaneda),
-    ("Ituzaingó", ituzaingo),
-    ("Lomas de Zamora", lomas_de_zamora),
-    ("Berazategui", berazategui),
-    ("San Isidro", san_isidro),
-    ("General Rodríguez", general_rodriguez),
-    ("Lanús", lanus),
+    ("San Miguel", "muni_san_miguel", san_miguel),
+    ("La Matanza", "muni_la_matanza", la_matanza),
+    ("Vicente López", "muni_vicente_lopez", vicente_lopez),
+    ("San Andrés de Giles", "muni_san_andres_giles", san_andres_de_giles),
+    ("Chivilcoy", "muni_chivilcoy", chivilcoy),
+    ("Quilmes", "muni_quilmes", quilmes),
+    ("Morón", "muni_moron", moron),
+    ("Tres de Febrero", "muni_tres_de_febrero", tres_de_febrero),
+    ("Florencio Varela", "muni_florencio_varela", florencio_varela),
+    ("Escobar", "muni_escobar", escobar),
+    ("Moreno", "muni_moreno", moreno),
+    ("Avellaneda", "muni_avellaneda", avellaneda),
+    ("Ituzaingó", "muni_ituzaingo", ituzaingo),
+    ("Lomas de Zamora", "muni_lomas_de_zamora", lomas_de_zamora),
+    ("Berazategui", "muni_berazategui", berazategui),
+    ("San Isidro", "muni_san_isidro", san_isidro),
+    ("General Rodríguez", "muni_general_rodriguez", general_rodriguez),
+    ("Lanús", "muni_lanus", lanus),
 ]
 
 # Municipios que reutilizan el conector generico de SIBOM (boletin oficial
@@ -51,84 +61,64 @@ MUNICIPIOS_SIBOM = [
 ]
 
 
-def run(comprar_limit=None, bac_limit=None, pbac_pages=5, municipios=True):
+def run(comprar_limit=None, bac_limit=None, pbac_pages=5, municipios=True, solo=None, excluir=None):
     conn = db.get_connection()
-    total = 0
+    solo = set(solo or [])
+    excluir = set(excluir or [])
     errores = []
+    total = 0
 
-    # Cada fuente va aislada: si una falla (conector roto, dato raro), las
-    # demas igual corren. Antes una excepcion en COMPR.AR cortaba la corrida
-    # entera y BAC/PAMI/Mendoza/municipios quedaban sin actualizar dias.
-    print("== COMPR.AR (Nación) ==")
-    try:
-        rows = comprar_ar.fetch(limit=comprar_limit)
-        n = db.upsert_many(conn, rows)
-        print(f"  {n} filas cargadas")
-        total += n
-    except Exception as e:
-        print(f"  ! error: {e!r}")
-        errores.append("COMPR.AR")
+    def activo(clave, grupo=None):
+        claves = {clave, grupo} - {None}
+        if solo and not (claves & solo):
+            return False
+        return not (claves & excluir)
 
-    print("== BAC (CABA) ==")
-    try:
-        rows = bac.fetch(limit=bac_limit)
-        n, n_items = db.upsert_with_items(conn, rows)
-        print(f"  {n} filas cargadas ({n_items} renglones)")
-        total += n
-    except Exception as e:
-        print(f"  ! error: {e!r}")
-        errores.append("BAC")
+    def paso(titulo, clave, slugs, fn, grupo=None):
+        """Corre una fuente aislada: si falla, las demas igual corren (antes
+        una excepcion cortaba toda la ingesta). Registra en estado_fuentes
+        si se pudo actualizar, para avisar en el buscador."""
+        nonlocal total
+        if not activo(clave, grupo):
+            return
+        print(f"== {titulo} ==")
+        try:
+            n = fn()
+            total += n or 0
+            db.registrar_estado_fuente(conn, slugs, ok=True)
+        except Exception as e:
+            print(f"  ! error: {e!r}")
+            errores.append(titulo)
+            db.registrar_estado_fuente(conn, slugs, ok=False, mensaje=str(e))
 
-    print("== PBAC (Provincia de Buenos Aires) ==")
-    try:
-        rows = pbac.fetch(max_pages=pbac_pages)
-        n = db.upsert_many(conn, rows)
-        print(f"  {n} filas cargadas")
-        total += n
-    except Exception as e:
-        print(f"  ! error: {e!r}")
-        errores.append("PBAC")
+    def cargar(fetch):
+        def _f():
+            n = db.upsert_many(conn, fetch())
+            print(f"  {n} filas cargadas")
+            return n
+        return _f
 
-    print("== Mendoza (Provincia y dependencias) ==")
-    try:
-        rows = mendoza.fetch()
-        n, n_items = db.upsert_with_items(conn, rows)
-        print(f"  {n} filas cargadas ({n_items} renglones)")
-        total += n
-    except Exception as e:
-        print(f"  ! error: {e!r}")
-        errores.append("Mendoza")
+    def cargar_con_items(fetch):
+        def _f():
+            n, n_items = db.upsert_with_items(conn, fetch())
+            print(f"  {n} filas cargadas ({n_items} renglones)")
+            return n
+        return _f
 
-    print("== PAMI (Nivel Central) ==")
-    try:
-        rows = pami.fetch()
-        n = db.upsert_many(conn, rows)
-        print(f"  {n} filas cargadas")
-        total += n
-    except Exception as e:
-        print(f"  ! error: {e!r}")
-        errores.append("PAMI")
+    paso("COMPR.AR (Nación)", "comprar_ar", ["comprar_ar"],
+         cargar(lambda: comprar_ar.fetch(limit=comprar_limit)))
+    paso("BAC (CABA)", "bac", ["bac"],
+         cargar_con_items(lambda: bac.fetch(limit=bac_limit)))
+    paso("PBAC (Provincia de Buenos Aires)", "pbac", ["pbac"],
+         cargar(lambda: pbac.fetch(max_pages=pbac_pages)))
+    paso("Mendoza (Provincia y dependencias)", "mendoza", ["mendoza"],
+         cargar_con_items(mendoza.fetch))
+    paso("PAMI (Nivel Central)", "pami", ["pami"], cargar(pami.fetch))
+    paso("PAMI (UGL, 38 unidades en todo el país)", "pami_ugl", ["pami_ugl"], cargar(pami.fetch_ugl))
+    paso("PAMI (Efectores Sanitarios Propios)", "pami_efectores", ["pami_efectores"],
+         cargar(pami.fetch_efectores))
 
-    print("== PAMI (UGL, 38 unidades en todo el país) ==")
-    try:
-        rows = pami.fetch_ugl()
-        n = db.upsert_many(conn, rows)
-        print(f"  {n} filas cargadas")
-        total += n
-    except Exception as e:
-        print(f"  ! error: {e}")
-
-    print("== PAMI (Efectores Sanitarios Propios) ==")
-    try:
-        rows = pami.fetch_efectores()
-        n = db.upsert_many(conn, rows)
-        print(f"  {n} filas cargadas")
-        total += n
-    except Exception as e:
-        print(f"  ! error: {e}")
-
-    print("== PAMI (comparativas: actas de apertura) ==")
-    try:
+    def actas():
         # historico mas amplio que el listado de vigentes -- si el proceso
         # todavia no estaba en la base (ya cerrado, fuera del listado de
         # "vigentes hoy"), se crea aca con lo que trae el acta.
@@ -144,48 +134,47 @@ def run(comprar_limit=None, bac_limit=None, pbac_pages=5, municipios=True):
             if db.set_ofertas(conn, "pami", row["numero_proceso"], ofertas):
                 n_ofertas += len(ofertas)
         print(f"  {len(actas_con_ofertas)} procesos con ofertas cargadas ({n_ofertas} ofertas)")
-    except Exception as e:
-        print(f"  ! error: {e}")
+        return 0
+
+    paso("PAMI (comparativas: actas de apertura)", "pami_actas", [], actas)
 
     if municipios:
-        for nombre, conector in MUNICIPIOS_SIMPLES:
-            print(f"== Municipio de {nombre} ==")
-            try:
-                rows = conector.fetch()
-                n = db.upsert_many(conn, rows)
-                print(f"  {n} filas cargadas")
-                total += n
-            except Exception as e:  # un municipio caido no debe frenar al resto
-                print(f"  ! error: {e}")
+        for nombre, slug, conector in MUNICIPIOS_SIMPLES:
+            paso(f"Municipio de {nombre}", slug, [slug], cargar(conector.fetch), grupo="municipios")
 
         for nombre, city_id, fuente, organismo, jurisdiccion in MUNICIPIOS_SIBOM:
-            print(f"== Municipio de {nombre} (vía SIBOM) ==")
-            try:
-                rows = sibom.fetch(
-                    city_id=city_id, fuente=fuente,
-                    organismo=organismo, jurisdiccion=jurisdiccion,
-                )
-                n = db.upsert_many(conn, rows)
-                print(f"  {n} filas cargadas")
-                total += n
-            except Exception as e:
-                print(f"  ! error: {e}")
+            paso(
+                f"Municipio de {nombre} (vía SIBOM)", fuente, [fuente],
+                cargar(lambda c=city_id, f=fuente, o=organismo, j=jurisdiccion:
+                       sibom.fetch(city_id=c, fuente=f, organismo=o, jurisdiccion=j)),
+                grupo="municipios",
+            )
 
     conn.close()
     print(f"\nTotal: {total} licitaciones en {db.DB_PATH}")
+    if errores:
+        print(f"Fuentes con error: {', '.join(errores)}")
+    return errores
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--rapido", action="store_true", help="corrida corta para probar el pipeline")
+    parser.add_argument("--solo", default="", help="solo estos pasos (separados por coma)")
+    parser.add_argument("--excluir", default="", help="todos menos estos pasos (separados por coma)")
     args = parser.parse_args()
+    solo = [x.strip() for x in args.solo.split(",") if x.strip()]
+    excluir = [x.strip() for x in args.excluir.split(",") if x.strip()]
 
     try:
         if args.rapido:
-            errores = run(comprar_limit=500, bac_limit=500, pbac_pages=3)
+            run(comprar_limit=500, bac_limit=500, pbac_pages=3, solo=solo, excluir=excluir)
         else:
-            errores = run()
-        codigo = 1 if errores else 0
+            run(solo=solo, excluir=excluir)
+        # Un portal caido ya queda avisado en el buscador (estado_fuentes);
+        # no se marca el job como fallido para no dejarlo en rojo todos los
+        # dias por una fuente externa que no controlamos.
+        codigo = 0
     except BaseException as e:
         print(f"! la ingesta fallo: {e!r}")
         codigo = 1

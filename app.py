@@ -381,11 +381,18 @@ def _buscar():
         ).fetchone()["c"]
 
     por_fuente = _por_fuente_actual(conn)
+    aviso_fuente = None
+    if fuente:
+        try:
+            aviso_fuente = db.obtener_aviso_fuente(conn, fuente)
+        except Exception:
+            aviso_fuente = None  # el aviso es accesorio: nunca debe romper el buscador
     conn.close()
 
     total_paginas = max(1, -(-total // PAGE_SIZE))  # ceil division
 
     return dict(
+        aviso_fuente=aviso_fuente,
         rows=rows,
         total=total,
         q=q,

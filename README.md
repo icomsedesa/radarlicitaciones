@@ -181,3 +181,9 @@ La app en sí (`app.py`) es de solo lectura sobre la base — liviana, ideal par
 ## Estado
 
 Prueba de concepto (Fase 1-2 del plan, más una primera expansión fuera del alcance original): ingesta, normalización, búsqueda (por proceso y por renglón) y comparativas funcionando de punta a punta con datos reales. **30 fuentes conectadas**: Nación (COMPR.AR), CABA (BAC), Provincia de Buenos Aires (PBAC), Provincia de Mendoza (+ OSEP), PAMI (Nivel Central + UGL + Efectores Sanitarios Propios, con comparativas públicas), y 22 municipios del Gran Buenos Aires + interior bonaerense. Todavía no tiene: alertas, deduplicación entre fuentes, el conector autenticado a COMPR.AR/BAC para comparativas completas (ver sección "Comparativas" arriba — la infraestructura de credenciales ya está, falta el scraper en sí), ni el barrido del interior de Mendoza/Buenos Aires ni de las demás UGL/agencias de PAMI más allá de lo ya conectado.
+
+## Avisos por fuente y PBAC local
+
+- Cada corrida de `src.ingest` registra en la tabla `estado_fuentes` si cada fuente se pudo actualizar. Si fallo, el buscador muestra un aviso ambar al filtrar por esa fuente (con la ultima fecha correcta y el motivo).
+- `python -m src.ingest --solo <paso>` / `--excluir <paso>` corre o saltea pasos puntuales (por ejemplo `pbac`, `muni_moron`).
+- PBAC no responde a las IP de GitHub Actions, por eso el workflow lo excluye. Mientras tanto corre desde una PC con `scripts/ingesta_pbac_local.ps1` (tarea programada de Windows "Radar - Ingesta PBAC", diaria 07:00). Es una solucion temporal: hay que moverlo a un lugar que no dependa de ninguna PC.

@@ -39,7 +39,9 @@ jobs:
           python -m playwright install --with-deps chromium
 
       - name: Ingesta completa (todas las fuentes)
-        run: python -m src.ingest
+        # PBAC se excluye: su servidor no responde a las IP de GitHub
+        # (queda para correrse desde otro lado, ver README).
+        run: python -m src.ingest --excluir pbac
 
       - name: Estado en vivo (COMPR.AR, Mendoza, OSEP, BAC)
         if: always()

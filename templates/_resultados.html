@@ -1,3 +1,13 @@
+{% if aviso_fuente %}
+<div class="aviso-fuente" role="alert">
+  <strong>⚠ Esta fuente no se pudo actualizar.</strong>
+  No se pudo leer el portal en la última ingesta ({{ aviso_fuente.ultimo_error[:10][8:10] }}/{{ aviso_fuente.ultimo_error[:10][5:7] }}/{{ aviso_fuente.ultimo_error[:4] }}).
+  {% if aviso_fuente.ultimo_ok %}Última actualización correcta: {{ aviso_fuente.ultimo_ok[:10][8:10] }}/{{ aviso_fuente.ultimo_ok[:10][5:7] }}/{{ aviso_fuente.ultimo_ok[:4] }}.{% endif %}
+  Los procesos que ves pueden estar desactualizados.
+  {% if aviso_fuente.mensaje %}<span class="aviso-detalle">Detalle: {{ aviso_fuente.mensaje }}</span>{% endif %}
+</div>
+{% endif %}
+
 <p class="muted" style="margin:-8px 0 14px;font-size:13px;">
   Mostrando {{ shown }} de {{ total }} {{ 'renglones' if vista == 'renglones' else 'procesos' }}
 </p>

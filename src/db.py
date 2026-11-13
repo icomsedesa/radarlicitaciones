@@ -82,6 +82,15 @@ CREATE TABLE IF NOT EXISTS palabras_clave (
     palabra TEXT PRIMARY KEY,
     creado_en TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Resultado de la ultima ingesta por fuente: si fallo, el buscador avisa
+-- al filtrar por esa fuente (los datos mostrados pueden estar viejos).
+CREATE TABLE IF NOT EXISTS estado_fuentes (
+    fuente TEXT PRIMARY KEY,
+    ultimo_ok TEXT,
+    ultimo_error TEXT,
+    mensaje TEXT
+);
 """
 
 UPSERT_SQL = """
@@ -383,6 +392,46 @@ def listar_credenciales(conn):
     return conn.execute(
         "SELECT portal, usuario, actualizado_en FROM credenciales_portal"
     ).fetchall()
+
+
+def registrar_estado_fuente(conn, fuentes, ok, mensaje=None):
+    """Anota el resultado de la ultima ingesta de cada fuente (slug).
+    ok=True limpia cualquier aviso; ok=False lo deja (conservando la fecha
+    del ultimo exito). Nunca debe tumbar la ingesta: se ignoran errores."""
+    mensaje = (mensaje or "")[:300] or None
+    for fuente in fuentes:
+        try:
+            if ok:
+                conn.execute(
+                    """INSERT INTO estado_fuentes (fuente, ultimo_ok, ultimo_error, mensaje)
+                       VALUES (?, CURRENT_TIMESTAMP, NULL, NULL)
+                       ON CONFLICT(fuente) DO UPDATE SET
+                           ultimo_ok=CURRENT_TIMESTAMP, ultimo_error=NULL, mensaje=NULL""",
+                    (fuente,),
+                )
+            else:
+                conn.execute(
+                    """INSERT INTO estado_fuentes (fuente, ultimo_ok, ultimo_error, mensaje)
+                       VALUES (?, NULL, CURRENT_TIMESTAMP, ?)
+                       ON CONFLICT(fuente) DO UPDATE SET
+                           ultimo_error=CURRENT_TIMESTAMP, mensaje=excluded.mensaje""",
+                    (fuente, mensaje),
+                )
+        except Exception as e:
+            print(f"  (no se pudo registrar el estado de {fuente}: {e!r})")
+    conn.commit()
+
+
+def obtener_aviso_fuente(conn, fuente):
+    """Dict {ultimo_ok, ultimo_error, mensaje} si la ultima ingesta de la
+    fuente fallo, o None si esta todo bien (o nunca se registro nada)."""
+    row = conn.execute(
+        "SELECT ultimo_ok, ultimo_error, mensaje FROM estado_fuentes WHERE fuente = ?",
+        (fuente,),
+    ).fetchone()
+    if row is None or not row["ultimo_error"]:
+        return None
+    return {"ultimo_ok": row["ultimo_ok"], "ultimo_error": row["ultimo_error"], "mensaje": row["mensaje"]}
 
 
 def listar_palabras_clave(conn):
