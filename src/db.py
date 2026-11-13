@@ -128,41 +128,65 @@ def upsert_with_items(conn, rows):
     (lista de dicts con numero_renglon/codigo_item/descripcion/cantidad/unidad/
     precio_unitario/moneda/clasificacion). Reemplaza los items existentes de cada
     licitacion afectada. Devuelve (n_licitaciones, n_items)."""
-    n_licitaciones = 0
-    n_items = 0
+    # En lotes (executemany): contra Turso cada statement suelto es un
+    # round-trip HTTP, y hacerlo de a uno (5000 licitaciones + decenas de
+    # miles de renglones) tardaba mas de una hora y se comia el timeout del
+    # workflow, dejando sin correr al resto de las fuentes.
+    rows = list(rows)
+    if not rows:
+        return 0, 0
+    items_por_clave = {}
     for row in rows:
         items = row.pop("items", None)
-        conn.execute(UPSERT_SQL, row)
-        cur = conn.execute(
-            "SELECT id FROM licitaciones WHERE fuente=? AND numero_proceso=?",
-            (row["fuente"], row["numero_proceso"]),
-        )
-        licitacion_id = cur.fetchone()["id"]
-        n_licitaciones += 1
-
         if items is not None:
-            conn.execute("DELETE FROM licitacion_items WHERE licitacion_id=?", (licitacion_id,))
-            for item in items:
-                conn.execute(
-                    """INSERT INTO licitacion_items
-                       (licitacion_id, numero_renglon, codigo_item, descripcion,
-                        cantidad, unidad, precio_unitario, moneda, clasificacion)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (
-                        licitacion_id,
-                        item.get("numero_renglon"),
-                        item.get("codigo_item"),
-                        item.get("descripcion"),
-                        item.get("cantidad"),
-                        item.get("unidad"),
-                        item.get("precio_unitario"),
-                        item.get("moneda"),
-                        item.get("clasificacion"),
-                    ),
-                )
-                n_items += 1
+            items_por_clave[(row["fuente"], row["numero_proceso"])] = items
+
+    conn.executemany(UPSERT_SQL, rows)
+
+    if not items_por_clave:
+        conn.commit()
+        return len(rows), 0
+
+    fuentes = sorted({f for f, _ in items_por_clave})
+    marcas = ",".join("?" for _ in fuentes)
+    ids = {
+        (r["fuente"], r["numero_proceso"]): r["id"]
+        for r in conn.execute(
+            f"SELECT id, fuente, numero_proceso FROM licitaciones WHERE fuente IN ({marcas})",
+            fuentes,
+        ).fetchall()
+    }
+
+    ids_afectados = []
+    filas_items = []
+    for clave, items in items_por_clave.items():
+        licitacion_id = ids.get(clave)
+        if licitacion_id is None:
+            continue
+        ids_afectados.append((licitacion_id,))
+        for item in items:
+            filas_items.append((
+                licitacion_id,
+                item.get("numero_renglon"),
+                item.get("codigo_item"),
+                item.get("descripcion"),
+                item.get("cantidad"),
+                item.get("unidad"),
+                item.get("precio_unitario"),
+                item.get("moneda"),
+                item.get("clasificacion"),
+            ))
+
+    conn.executemany("DELETE FROM licitacion_items WHERE licitacion_id=?", ids_afectados)
+    conn.executemany(
+        """INSERT INTO licitacion_items
+           (licitacion_id, numero_renglon, codigo_item, descripcion,
+            cantidad, unidad, precio_unitario, moneda, clasificacion)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        filas_items,
+    )
     conn.commit()
-    return n_licitaciones, n_items
+    return len(rows), len(filas_items)
 
 
 REFRESH_ESTADO_SQL = """
