@@ -6,10 +6,15 @@ $carpeta = $PSScriptRoot
 Set-Location $carpeta
 
 if (-not (Test-Path ".env")) { throw "Falta el archivo .env (copiar .env.example a .env y completar las 2 variables)." }
-if (-not (Get-Command python -ErrorAction SilentlyContinue)) { throw "No se encontro Python en el PATH." }
+# Python puede estar como "python" (instalador clasico) o solo como "py" (Python install manager).
+if (Get-Command python -ErrorAction SilentlyContinue) { $py = @("python") }
+elseif (Get-Command py -ErrorAction SilentlyContinue) { $py = @("py", "-3") }
+else { throw "No se encontro Python (ni 'python' ni 'py'). Instalarlo primero." }
 
 Write-Host "1/4 Creando entorno virtual..."
-python -m venv .venv
+$cmd = $py[0]
+$resto = @($py | Select-Object -Skip 1)
+& $cmd @resto -m venv .venv
 Write-Host "2/4 Instalando dependencias..."
 & .\.venv\Scripts\python.exe -m pip install --quiet -r requirements-pbac.txt
 
