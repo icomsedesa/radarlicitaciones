@@ -42,6 +42,8 @@ def run(max_paginas=None):
     errores = []
     _fuente("buenosairescompras.gob.ar (apertura proxima)",
             lambda: bac_live.fetch(max_paginas=max_paginas), errores)
+    _fuente("buenosairescompras.gob.ar (ultimos 30 dias)",
+            lambda: bac_live.fetch(max_paginas=max_paginas, url=bac_live.URL_ULTIMOS_30_DIAS), errores)
     _fuente("comprar.gob.ar (Estado = Publicado)",
             lambda: comprar_ar_live.fetch_abiertas(max_paginas=max_paginas), errores)
     _fuente("comprar.mendoza.gov.ar (Estado = Publicado)",

@@ -18,6 +18,7 @@ from playwright.sync_api import sync_playwright
 
 HOME_URL = "https://buenosairescompras.gob.ar/Default.aspx"
 URL = "https://buenosairescompras.gob.ar/ListarAperturaProxima.aspx"
+URL_ULTIMOS_30_DIAS = "https://buenosairescompras.gob.ar/ListarAperturaUltimos30Dias.aspx"
 
 FILAS_POR_PAGINA = 10
 
@@ -30,11 +31,14 @@ def _parse_fecha(texto: str):
         return None
 
 
-def _parse_rows(page) -> list[dict]:
+def _parse_rows(page, url: str = URL) -> list[dict]:
     table = page.locator("table#ctl00_CPH1_GridListaPliegos")
     trs = table.locator("> tbody > tr, > tr").all()
     items = []
-    for tr in trs[1:]:  # trs[0] es el header
+    # No se saltea trs[0] a ciegas: el header no siempre aparece en la
+    # lista (a veces si, a veces no) y se perdia la primera fila de datos
+    # de la pagina. Header y paginador se filtran por cantidad de celdas.
+    for tr in trs:
         tds = tr.locator("> td").all()
         if len(tds) < 6:
             continue
@@ -56,7 +60,7 @@ def _parse_rows(page) -> list[dict]:
             "estado": tds[4].inner_text().strip(),
             "proveedor_adjudicado": None,
             "monto_adjudicado": None,
-            "url": URL,
+            "url": url,
         })
     return items
 
@@ -72,8 +76,10 @@ def _total_paginas(page) -> int:
     return max(1, -(-total // FILAS_POR_PAGINA))  # ceil division
 
 
-def fetch(max_paginas: int | None = None) -> list[dict]:
-    """Trae todas las licitaciones de BAC con apertura proxima (futura).
+def fetch(max_paginas: int | None = None, url: str = URL) -> list[dict]:
+    """Trae todas las licitaciones de BAC con apertura proxima (futura), o
+    -con `url=URL_ULTIMOS_30_DIAS`- las abiertas en los ultimos 30 dias (el
+    CSV anual de BAC llega con semanas de atraso, esto cubre ese hueco).
     `max_paginas` acota para pruebas rapidas (None = todas)."""
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -83,10 +89,10 @@ def fetch(max_paginas: int | None = None) -> list[dict]:
             # el sitio rebota a la home (necesita la cookie de sesion que se
             # establece ahi) -- se pisa igual con el goto siguiente.
             page.goto(HOME_URL, wait_until="domcontentloaded")
-            page.goto(URL, wait_until="domcontentloaded")
+            page.goto(url, wait_until="domcontentloaded")
             page.wait_for_selector("table#ctl00_CPH1_GridListaPliegos", timeout=20000)
 
-            resultados = _parse_rows(page)
+            resultados = _parse_rows(page, url)
             total_paginas = _total_paginas(page)
             if max_paginas:
                 total_paginas = min(total_paginas, max_paginas)
@@ -99,7 +105,7 @@ def fetch(max_paginas: int | None = None) -> list[dict]:
                     )
                     page.wait_for_load_state("networkidle")
                     page.wait_for_selector("table#ctl00_CPH1_GridListaPliegos", timeout=15000)
-                    resultados.extend(_parse_rows(page))
+                    resultados.extend(_parse_rows(page, url))
                 except Exception as e:  # pagina puntual con timeout/hiccup -- no cortar el lote
                     print(f"  ! error en pagina {pagina}: {e}")
                 pagina += 1
