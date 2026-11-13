@@ -20,11 +20,28 @@ Notas:
 - `commit()` es un no-op: cada statement ya queda persistido al ejecutarse
   (no hay transacciones explicitas multi-statement en este codigo).
 """
+import math
 import os
 
 import libsql_client
 
 BATCH_SIZE = 500
+
+
+def _limpiar_valor(v):
+    # Turso/Hrana rechaza NaN e Infinity ("Only finite floats...") y eso
+    # tiraba abajo toda la ingesta diaria -- se guardan como NULL.
+    if isinstance(v, float) and not math.isfinite(v):
+        return None
+    return v
+
+
+def _limpiar_params(params):
+    if params is None:
+        return None
+    if isinstance(params, dict):
+        return {k: _limpiar_valor(v) for k, v in params.items()}
+    return [_limpiar_valor(v) for v in params]
 
 
 def _normalizar_url(url: str) -> str:
@@ -73,14 +90,14 @@ class TursoConnection:
         self.row_factory = None  # compatibilidad de interfaz -- no se usa
 
     def execute(self, sql, params=None):
-        rs = self._client.execute(sql, params)
+        rs = self._client.execute(sql, _limpiar_params(params))
         return TursoCursor(rs)
 
     def executemany(self, sql, seq_of_params):
         seq_of_params = list(seq_of_params)
         for i in range(0, len(seq_of_params), BATCH_SIZE):
             lote = seq_of_params[i:i + BATCH_SIZE]
-            self._client.batch([libsql_client.Statement(sql, p) for p in lote])
+            self._client.batch([libsql_client.Statement(sql, _limpiar_params(p)) for p in lote])
 
     def executescript(self, script: str):
         statements = [s.strip() for s in script.split(";")]

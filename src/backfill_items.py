@@ -63,4 +63,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--max", type=int, default=200)
     args = parser.parse_args()
-    run(max_procesos=args.max)
+    import os
+    import sys
+    try:
+        run(max_procesos=args.max)
+        codigo = 0
+    except BaseException as e:
+        print(f"! fallo: {e!r}")
+        codigo = 1
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(codigo)

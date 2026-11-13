@@ -5,6 +5,7 @@ Uso:
     python -m src.ingest --rapido              # corrida corta para probar el pipeline
 """
 import argparse
+import os
 import sys
 
 from src import db
@@ -53,36 +54,60 @@ MUNICIPIOS_SIBOM = [
 def run(comprar_limit=None, bac_limit=None, pbac_pages=5, municipios=True):
     conn = db.get_connection()
     total = 0
+    errores = []
 
+    # Cada fuente va aislada: si una falla (conector roto, dato raro), las
+    # demas igual corren. Antes una excepcion en COMPR.AR cortaba la corrida
+    # entera y BAC/PAMI/Mendoza/municipios quedaban sin actualizar dias.
     print("== COMPR.AR (Nación) ==")
-    rows = comprar_ar.fetch(limit=comprar_limit)
-    n = db.upsert_many(conn, rows)
-    print(f"  {n} filas cargadas")
-    total += n
+    try:
+        rows = comprar_ar.fetch(limit=comprar_limit)
+        n = db.upsert_many(conn, rows)
+        print(f"  {n} filas cargadas")
+        total += n
+    except Exception as e:
+        print(f"  ! error: {e!r}")
+        errores.append("COMPR.AR")
 
     print("== BAC (CABA) ==")
-    rows = bac.fetch(limit=bac_limit)
-    n, n_items = db.upsert_with_items(conn, rows)
-    print(f"  {n} filas cargadas ({n_items} renglones)")
-    total += n
+    try:
+        rows = bac.fetch(limit=bac_limit)
+        n, n_items = db.upsert_with_items(conn, rows)
+        print(f"  {n} filas cargadas ({n_items} renglones)")
+        total += n
+    except Exception as e:
+        print(f"  ! error: {e!r}")
+        errores.append("BAC")
 
     print("== PBAC (Provincia de Buenos Aires) ==")
-    rows = pbac.fetch(max_pages=pbac_pages)
-    n = db.upsert_many(conn, rows)
-    print(f"  {n} filas cargadas")
-    total += n
+    try:
+        rows = pbac.fetch(max_pages=pbac_pages)
+        n = db.upsert_many(conn, rows)
+        print(f"  {n} filas cargadas")
+        total += n
+    except Exception as e:
+        print(f"  ! error: {e!r}")
+        errores.append("PBAC")
 
     print("== Mendoza (Provincia y dependencias) ==")
-    rows = mendoza.fetch()
-    n, n_items = db.upsert_with_items(conn, rows)
-    print(f"  {n} filas cargadas ({n_items} renglones)")
-    total += n
+    try:
+        rows = mendoza.fetch()
+        n, n_items = db.upsert_with_items(conn, rows)
+        print(f"  {n} filas cargadas ({n_items} renglones)")
+        total += n
+    except Exception as e:
+        print(f"  ! error: {e!r}")
+        errores.append("Mendoza")
 
     print("== PAMI (Nivel Central) ==")
-    rows = pami.fetch()
-    n = db.upsert_many(conn, rows)
-    print(f"  {n} filas cargadas")
-    total += n
+    try:
+        rows = pami.fetch()
+        n = db.upsert_many(conn, rows)
+        print(f"  {n} filas cargadas")
+        total += n
+    except Exception as e:
+        print(f"  ! error: {e!r}")
+        errores.append("PAMI")
 
     print("== PAMI (UGL, 38 unidades en todo el país) ==")
     try:
@@ -155,8 +180,18 @@ if __name__ == "__main__":
     parser.add_argument("--rapido", action="store_true", help="corrida corta para probar el pipeline")
     args = parser.parse_args()
 
-    if args.rapido:
-        run(comprar_limit=500, bac_limit=500, pbac_pages=3)
-    else:
-        run()
-    sys.exit(0)
+    try:
+        if args.rapido:
+            errores = run(comprar_limit=500, bac_limit=500, pbac_pages=3)
+        else:
+            errores = run()
+        codigo = 1 if errores else 0
+    except BaseException as e:
+        print(f"! la ingesta fallo: {e!r}")
+        codigo = 1
+    # os._exit: el cliente libsql deja un hilo asyncio no-daemon; ante una
+    # excepcion el proceso quedaba colgado hasta el timeout del workflow
+    # (2 h) en vez de terminar.
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(codigo)
