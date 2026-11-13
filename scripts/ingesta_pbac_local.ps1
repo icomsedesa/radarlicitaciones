@@ -10,5 +10,5 @@ New-Item -ItemType Directory -Force -Path "data\logs" | Out-Null
 $log = "data\logs\pbac.log"
 "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] inicio" | Out-File -Append -Encoding utf8 $log
 $env:PYTHONIOENCODING = "utf-8"
-& ".\.venv\Scripts\python.exe" -m src.ingest --solo pbac 2>&1 | Out-File -Append -Encoding utf8 $log
+& ".\.venv\Scripts\python.exe" -m src.ingest_pbac 2>&1 | Out-File -Append -Encoding utf8 $log
 "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] fin (codigo $LASTEXITCODE)" | Out-File -Append -Encoding utf8 $log
