@@ -32,7 +32,7 @@ def _parse_rows(page) -> list[dict]:
     table = page.locator("table#ctl00_CPH1_GridListaPliegos")
     trs = table.locator("> tbody > tr, > tr").all()
     items = []
-    for tr in trs[1:]:
+    for tr in trs:  # el header (solo <th>) se descarta por cantidad de celdas
         cls = tr.get_attribute("class") or ""
         if "pagination" in cls:
             continue

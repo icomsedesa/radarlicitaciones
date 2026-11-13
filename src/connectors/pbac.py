@@ -44,7 +44,7 @@ def _parse_rows(soup: BeautifulSoup) -> list[dict]:
     # una tabla ANIDADA con sus propios <tr>, que find_all("tr") (recursivo
     # por defecto) tambien matchearia como si fueran filas de datos.
     trs = table.select(":scope > tbody > tr") or table.select(":scope > tr")
-    for tr in trs[1:]:  # salteamos header
+    for tr in trs:  # el header (solo <th>) se descarta por cantidad de celdas
         if "pagination" in (tr.get("class") or []):
             continue
         tds = tr.find_all("td", recursive=False)
