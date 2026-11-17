@@ -22,6 +22,7 @@ Notas:
 """
 import math
 import os
+import time
 
 import libsql_client
 
@@ -51,6 +52,21 @@ def _normalizar_url(url: str) -> str:
     if url.startswith("libsql://"):
         return "https://" + url[len("libsql://"):]
     return url
+
+
+def _con_reintentos(fn, intentos=4):
+    """Turso a veces devuelve 5xx transitorios (502 en medio de una carga
+    larga) y eso dejaba fuentes enteras sin actualizar. Se reintenta con
+    espera creciente; los errores de SQL/parametros (no transitorios) se
+    propagan de inmediato."""
+    for i in range(intentos):
+        try:
+            return fn()
+        except Exception as e:
+            transitorio = "SERVER_ERROR" in str(e) or "HTTP status 5" in str(e)
+            if not transitorio or i == intentos - 1:
+                raise
+            time.sleep(3 * (i + 1))
 
 
 class TursoCursor:
@@ -90,20 +106,21 @@ class TursoConnection:
         self.row_factory = None  # compatibilidad de interfaz -- no se usa
 
     def execute(self, sql, params=None):
-        rs = self._client.execute(sql, _limpiar_params(params))
+        rs = _con_reintentos(lambda: self._client.execute(sql, _limpiar_params(params)))
         return TursoCursor(rs)
 
     def executemany(self, sql, seq_of_params):
         seq_of_params = list(seq_of_params)
         for i in range(0, len(seq_of_params), BATCH_SIZE):
             lote = seq_of_params[i:i + BATCH_SIZE]
-            self._client.batch([libsql_client.Statement(sql, _limpiar_params(p)) for p in lote])
+            stmts = [libsql_client.Statement(sql, _limpiar_params(p)) for p in lote]
+            _con_reintentos(lambda: self._client.batch(stmts))
 
     def executescript(self, script: str):
         statements = [s.strip() for s in script.split(";")]
         statements = [s for s in statements if s]
         if statements:
-            self._client.batch(statements)
+            _con_reintentos(lambda: self._client.batch(statements))
 
     def commit(self):
         pass  # cada execute/batch ya persiste -- no hay transaccion abierta que cerrar

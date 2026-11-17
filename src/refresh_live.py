@@ -15,6 +15,7 @@ Uso:
 import argparse
 import os
 import sys
+import time
 
 from src import db
 from src.connectors import bac_live, comprar_ar_live, mendoza_live
@@ -25,7 +26,17 @@ def _fuente(titulo, fetch, errores):
     demas igual se actualizan."""
     print(f"Consultando {titulo}...")
     try:
-        rows = fetch()
+        # los portales a veces tardan o cortan (timeouts sueltos): se
+        # reintenta la consulta completa antes de darla por caida.
+        for intento in range(3):
+            try:
+                rows = fetch()
+                break
+            except Exception as e:
+                if intento == 2:
+                    raise
+                print(f"  (intento {intento + 1} fallo: {str(e)[:120]!r}; reintentando)")
+                time.sleep(20)
         print(f"{len(rows)} licitaciones encontradas")
         conn = db.get_connection()
         try:
@@ -61,7 +72,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     try:
         errores = run(max_paginas=args.max)
-        codigo = 1 if errores else 0
+        # un portal caido no deja el job en rojo (se ve en el buscador)
+        codigo = 0
     except BaseException as e:
         print(f"! fallo: {e!r}")
         codigo = 1
