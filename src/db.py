@@ -131,7 +131,19 @@ def get_connection():
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(SCHEMA)
+    _migrar(conn)
     return conn
+
+
+def _migrar(conn):
+    """Cambios de esquema sobre tablas que ya existen en produccion
+    (CREATE TABLE IF NOT EXISTS no agrega columnas nuevas)."""
+    cols = {r["name"] for r in conn.execute("SELECT name FROM pragma_table_info('licitacion_ofertas')").fetchall()}
+    if "origen" not in cols:
+        # NULL = cuadro comparativo / acta (todas las ofertas);
+        # 'orden_compra' = solo el adjudicatario, tomado de la OC publica.
+        conn.execute("ALTER TABLE licitacion_ofertas ADD COLUMN origen TEXT")
+        conn.commit()
 
 
 def upsert_many(conn, rows):
@@ -300,7 +312,7 @@ def get_items(conn, licitacion_id):
     ).fetchall()
 
 
-def set_ofertas(conn, fuente, numero_proceso, ofertas):
+def set_ofertas(conn, fuente, numero_proceso, ofertas, origen=None):
     """Reemplaza las ofertas (comparativas: quien cotizo, a que precio) de una
     licitacion ya existente, identificada por fuente+numero_proceso. Cada
     oferta es un dict con proveedor/cuit/monto/moneda/fecha_oferta/
@@ -317,8 +329,8 @@ def set_ofertas(conn, fuente, numero_proceso, ofertas):
     for oferta in ofertas:
         conn.execute(
             """INSERT INTO licitacion_ofertas
-               (licitacion_id, proveedor, cuit, monto, moneda, fecha_oferta, es_ganadora)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+               (licitacion_id, proveedor, cuit, monto, moneda, fecha_oferta, es_ganadora, origen)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 licitacion_id,
                 oferta.get("proveedor"),
@@ -327,7 +339,42 @@ def set_ofertas(conn, fuente, numero_proceso, ofertas):
                 oferta.get("moneda"),
                 oferta.get("fecha_oferta"),
                 1 if oferta.get("es_ganadora") else 0,
+                origen,
             ),
+        )
+    conn.commit()
+    return True
+
+
+def set_ofertas_oc(conn, fuente, numero_proceso, adjudicatarios):
+    """Guarda SOLO el/los adjudicatarios de un proceso (tomados de la orden
+    de compra publica, origen='orden_compra'). No pisa un cuadro comparativo
+    real: si el proceso ya tiene ofertas de otro origen (cuadro/acta), no
+    hace nada. Devuelve True si guardo."""
+    row = conn.execute(
+        "SELECT id FROM licitaciones WHERE fuente=? AND numero_proceso=?",
+        (fuente, numero_proceso),
+    ).fetchone()
+    if not row:
+        return False
+    licitacion_id = row["id"]
+    otras = conn.execute(
+        "SELECT COUNT(*) c FROM licitacion_ofertas WHERE licitacion_id=? AND origen IS NULL",
+        (licitacion_id,),
+    ).fetchone()["c"]
+    if otras:
+        return False
+    conn.execute(
+        "DELETE FROM licitacion_ofertas WHERE licitacion_id=? AND origen='orden_compra'",
+        (licitacion_id,),
+    )
+    for a in adjudicatarios:
+        conn.execute(
+            """INSERT INTO licitacion_ofertas
+               (licitacion_id, proveedor, cuit, monto, moneda, fecha_oferta, es_ganadora, origen)
+               VALUES (?, ?, ?, ?, ?, ?, 1, 'orden_compra')""",
+            (licitacion_id, a.get("proveedor"), a.get("cuit"), a.get("monto"),
+             a.get("moneda"), a.get("fecha_oferta")),
         )
     conn.commit()
     return True

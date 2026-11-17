@@ -47,6 +47,10 @@ jobs:
         if: always()
         run: python -m src.refresh_live
 
+      - name: Adjudicatarios de BAC (ordenes de compra publicas)
+        if: always()
+        run: python -m src.cargar_bac_oc
+
       - name: Renglones de COMPR.AR vigentes
         if: always()
         run: python -m src.backfill_items

@@ -502,7 +502,7 @@ def _comparativas():
 
     query = f"""
         SELECT o.id AS oferta_id, o.proveedor, o.cuit, o.monto, o.moneda,
-               o.fecha_oferta, o.es_ganadora,
+               o.fecha_oferta, o.es_ganadora, o.origen,
                l.id AS licitacion_id, l.fuente, l.numero_proceso, l.titulo,
                l.organismo, l.fecha_apertura
         FROM licitacion_ofertas o

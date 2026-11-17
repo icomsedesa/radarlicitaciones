@@ -1,3 +1,10 @@
+{% if fuente in ('bac', 'comprar_ar') or not fuente %}
+<div class="nota-fuente">
+  {% if fuente == 'bac' or not fuente %}<p><b>BAC:</b> el portal no publica las ofertas de los demás oferentes. Se muestran (a) todas las ofertas de los procesos en los que IcomSalud participó, y (b) para el resto de los procesos adjudicados, solo el <b>adjudicatario y su monto</b> (orden de compra pública, marcado “adjudicada (OC)”).</p>{% endif %}
+  {% if fuente == 'comprar_ar' or not fuente %}<p><b>COMPR.AR:</b> solo se ven las ofertas de los procesos en los que IcomSalud participó (el cuadro comparativo es privado del proveedor).</p>{% endif %}
+</div>
+{% endif %}
+
 <p class="muted" style="margin:-8px 0 14px;font-size:13px;">Mostrando {{ shown }} de {{ total }} ofertas de los últimos {{ meses }} meses</p>
 
 <div class="table-wrap">
@@ -6,7 +13,7 @@
     <thead>
       <tr>
         <th>Fuente</th><th>N° proceso</th><th>Licitación</th><th>Organismo</th>
-        <th>Apertura</th><th>Proveedor</th><th>CUIT</th><th>Fecha oferta</th><th>Monto cotizado</th>
+        <th>Apertura</th><th>Proveedor</th><th>CUIT</th><th>Fecha oferta / OC</th><th>Monto</th>
       </tr>
     </thead>
     <tbody>
@@ -17,7 +24,7 @@
         <td>{{ r.titulo or '(sin título)' }}</td>
         <td>{{ r.organismo or '—' }}</td>
         <td>{{ r.fecha_apertura[:16].replace('T',' ') if r.fecha_apertura else '—' }}</td>
-        <td>{{ r.proveedor or '—' }}{% if r.es_ganadora %} <span class="ganadora">★ menor precio</span>{% endif %}</td>
+        <td>{{ r.proveedor or '—' }}{% if r.origen == 'orden_compra' %} <span class="ganadora" title="Dato de la orden de compra publicada en BAC: muestra solo quién ganó, no las demás ofertas">★ adjudicada (OC)</span>{% elif r.es_ganadora %} <span class="ganadora">★ menor precio</span>{% endif %}</td>
         <td>{{ r.cuit or '—' }}</td>
         <td>{{ r.fecha_oferta or '—' }}</td>
         <td class="monto">{% if r.monto %}{{ '{:,.2f}'.format(r.monto) }} {{ r.moneda or '' }}{% else %}—{% endif %}</td>
